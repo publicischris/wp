@@ -26,6 +26,8 @@ class CTO_Utils {
 			'_cto_analysis_status',
 			'_cto_analysis_data',
 			'_cto_analyzed_at',
+			'_cto_ai_analysis_data',
+			'_cto_ai_analyzed_at',
 		);
 	}
 

@@ -15,7 +15,7 @@ Rule-based WordPress admin overview for taxonomy and content-structure completen
 3. Open Content Taxonomy in the admin menu.
 
 == Usage ==
-Use "Alle Inhalte neu analysieren" for a full refresh or "Neu analysieren" in a table row for one post/page. The overview supports pagination with 20, 50 or 100 items per page and per-user column visibility controls. The plugin only analyzes and stores scores in post meta; it does not modify content or taxonomies.
+Use "Alle Inhalte neu analysieren" for a full refresh or "Neu analysieren" in a table row for one post/page. If valid AI settings are saved and enabled, use "KI testen" in a row to generate read-only AI recommendations for that item. The overview supports pagination with 20, 50 or 100 items per page and per-user column visibility controls. The plugin only analyzes and stores scores in post meta; it does not modify content or taxonomies.
 
 == Stored Meta Keys ==
 * _cto_taxonomy_score
@@ -24,6 +24,8 @@ Use "Alle Inhalte neu analysieren" for a full refresh or "Neu analysieren" in a 
 * _cto_analysis_status
 * _cto_analysis_data
 * _cto_analyzed_at
+* _cto_ai_analysis_data
+* _cto_ai_analyzed_at
 
 == Hooks ==
 * plugins_loaded
@@ -35,6 +37,7 @@ Use "Alle Inhalte neu analysieren" for a full refresh or "Neu analysieren" in a 
 * admin_post_cto_save_settings
 * admin_post_cto_test_api
 * admin_post_cto_save_columns
+* admin_post_cto_ai_analyze_single
 
 == Phase 2 Prepared ==
-The plugin includes CTO_AI_Service, secure settings storage, masked API-key display, a connection test, and a placeholder analyze_with_ai($post_id). No AI categorization or automatic content/taxonomy changes are performed.
+The plugin includes CTO_AI_Service, secure settings storage, masked API-key display, a connection test, and a manual per-post/page AI recommendation action. No AI categorization or automatic content/taxonomy changes are performed.

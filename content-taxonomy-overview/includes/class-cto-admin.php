@@ -27,6 +27,7 @@ class CTO_Admin {
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'admin_post_cto_analyze_all', array( $this, 'handle_analyze_all' ) );
 		add_action( 'admin_post_cto_analyze_single', array( $this, 'handle_analyze_single' ) );
+		add_action( 'admin_post_cto_ai_analyze_single', array( $this, 'handle_ai_analyze_single' ) );
 		add_action( 'admin_post_cto_save_columns', array( $this, 'handle_save_columns' ) );
 	}
 
@@ -99,6 +100,31 @@ class CTO_Admin {
 		exit;
 	}
 
+
+	/** Handle single AI analysis. */
+	public function handle_ai_analyze_single() {
+		$post_id = isset( $_GET['post_id'] ) ? absint( $_GET['post_id'] ) : 0;
+		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
+			wp_die( esc_html__( 'Insufficient permissions.', 'content-taxonomy-overview' ) );
+		}
+
+		check_admin_referer( 'cto_ai_analyze_single_' . $post_id );
+		$ai_service = new CTO_AI_Service();
+		$result     = $ai_service->analyze_with_ai( $post_id );
+		$notice     = is_wp_error( $result ) ? 'ai_failed' : 'ai_analyzed_single';
+		$args       = array(
+			'page'       => 'content-taxonomy-overview',
+			'cto_notice' => $notice,
+		);
+
+		if ( is_wp_error( $result ) ) {
+			$args['cto_error'] = $result->get_error_message();
+		}
+
+		wp_safe_redirect( add_query_arg( $args, admin_url( 'admin.php' ) ) );
+		exit;
+	}
+
 	/** Render notices. */
 	private function render_notices() {
 		$notice = isset( $_GET['cto_notice'] ) ? sanitize_key( wp_unslash( $_GET['cto_notice'] ) ) : '';
@@ -109,6 +135,11 @@ class CTO_Admin {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Der Inhalt wurde neu analysiert.', 'content-taxonomy-overview' ) . '</p></div>';
 		} elseif ( 'columns_saved' === $notice ) {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Spaltenauswahl gespeichert.', 'content-taxonomy-overview' ) . '</p></div>';
+		} elseif ( 'ai_analyzed_single' === $notice ) {
+			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'KI-Analyse wurde erstellt. Es wurden keine Inhalte oder Taxonomien geändert.', 'content-taxonomy-overview' ) . '</p></div>';
+		} elseif ( 'ai_failed' === $notice ) {
+			$error = isset( $_GET['cto_error'] ) ? sanitize_text_field( wp_unslash( $_GET['cto_error'] ) ) : __( 'Unknown error.', 'content-taxonomy-overview' );
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html( sprintf( __( 'KI-Analyse fehlgeschlagen: %s', 'content-taxonomy-overview' ), $error ) ) . '</p></div>';
 		}
 	}
 
@@ -303,6 +334,7 @@ class CTO_Admin {
 			}
 		}
 		$action       = wp_nonce_url( add_query_arg( array( 'action' => 'cto_analyze_single', 'post_id' => $post->ID ), admin_url( 'admin-post.php' ) ), 'cto_analyze_single_' . $post->ID );
+		$ai_action    = wp_nonce_url( add_query_arg( array( 'action' => 'cto_ai_analyze_single', 'post_id' => $post->ID ), admin_url( 'admin-post.php' ) ), 'cto_ai_analyze_single_' . $post->ID );
 		$status       = (string) get_post_meta( $post->ID, '_cto_analysis_status', true );
 		$status_class = $this->get_status_class( $status );
 		$row          = array(
@@ -322,7 +354,7 @@ class CTO_Admin {
 			'struct_score' => esc_html( get_post_meta( $post->ID, '_cto_structure_score', true ) ),
 			'total_score'  => '<strong>' . esc_html( get_post_meta( $post->ID, '_cto_total_score', true ) ) . '</strong>',
 			'notice'       => '<span class="cto-status cto-status-' . esc_attr( $status_class ) . '">' . esc_html( $status ) . '</span>',
-			'action'       => '<a class="button button-small" href="' . esc_url( $action ) . '">' . esc_html__( 'Neu analysieren', 'content-taxonomy-overview' ) . '</a>',
+			'action'       => '<a class="button button-small" href="' . esc_url( $action ) . '">' . esc_html__( 'Neu analysieren', 'content-taxonomy-overview' ) . '</a>' . ( CTO_AI_Service::is_configured() ? ' <a class="button button-small" href="' . esc_url( $ai_action ) . '">' . esc_html__( 'KI testen', 'content-taxonomy-overview' ) . '</a>' : '' ),
 		);
 		?>
 		<tr>
@@ -332,6 +364,64 @@ class CTO_Admin {
 				<?php endif; ?>
 			<?php endforeach; ?>
 		</tr>
+		<?php $this->render_ai_result_row( $post, $visible_columns ); ?>
+		<?php
+	}
+
+	/** Render stored AI recommendations below a content row.
+	 *
+	 * @param WP_Post  $post Post object.
+	 * @param string[] $visible_columns Visible columns.
+	 */
+	private function render_ai_result_row( $post, $visible_columns ) {
+		$ai_data = get_post_meta( $post->ID, '_cto_ai_analysis_data', true );
+		if ( ! is_array( $ai_data ) || empty( $ai_data ) ) {
+			return;
+		}
+
+		?>
+		<tr class="cto-ai-result-row">
+			<td colspan="<?php echo esc_attr( count( $visible_columns ) ); ?>">
+				<strong><?php esc_html_e( 'KI-Empfehlungen', 'content-taxonomy-overview' ); ?></strong>
+				<?php if ( ! empty( $ai_data['analyzed_at'] ) ) : ?>
+					<span class="description">— <?php echo esc_html( mysql2date( 'd.m.Y H:i', $ai_data['analyzed_at'] ) ); ?></span>
+				<?php endif; ?>
+				<div class="cto-ai-grid">
+					<?php $this->render_ai_field( __( 'Hauptthema', 'content-taxonomy-overview' ), isset( $ai_data['main_topic'] ) ? $ai_data['main_topic'] : '' ); ?>
+					<?php $this->render_ai_field( __( 'Kategorien', 'content-taxonomy-overview' ), isset( $ai_data['recommended_categories'] ) ? $ai_data['recommended_categories'] : array() ); ?>
+					<?php $this->render_ai_field( __( 'Tags', 'content-taxonomy-overview' ), isset( $ai_data['recommended_tags'] ) ? $ai_data['recommended_tags'] : array() ); ?>
+					<?php $this->render_ai_field( __( 'Custom Taxonomies', 'content-taxonomy-overview' ), isset( $ai_data['recommended_taxonomies'] ) ? $ai_data['recommended_taxonomies'] : array() ); ?>
+					<?php $this->render_ai_field( __( 'Content Cluster', 'content-taxonomy-overview' ), isset( $ai_data['content_cluster'] ) ? $ai_data['content_cluster'] : '' ); ?>
+					<?php $this->render_ai_field( __( 'Suchintention', 'content-taxonomy-overview' ), isset( $ai_data['search_intent'] ) ? $ai_data['search_intent'] : '' ); ?>
+					<?php $this->render_ai_field( __( 'Interne Links', 'content-taxonomy-overview' ), isset( $ai_data['internal_link_suggestions'] ) ? $ai_data['internal_link_suggestions'] : array() ); ?>
+					<?php $this->render_ai_field( __( 'Tonalität', 'content-taxonomy-overview' ), isset( $ai_data['tone_assessment'] ) ? $ai_data['tone_assessment'] : '' ); ?>
+					<?php $this->render_ai_field( __( 'Begründung', 'content-taxonomy-overview' ), isset( $ai_data['reasoning'] ) ? $ai_data['reasoning'] : '' ); ?>
+				</div>
+				<p class="description"><?php esc_html_e( 'Hinweis: Die KI-Analyse ist nur eine Empfehlung. Es wurden keine Inhalte, Kategorien, Tags oder Taxonomien automatisch geändert.', 'content-taxonomy-overview' ); ?></p>
+			</td>
+		</tr>
+		<?php
+	}
+
+	/** Render one AI recommendation field.
+	 *
+	 * @param string       $label Field label.
+	 * @param string|array $value Field value.
+	 */
+	private function render_ai_field( $label, $value ) {
+		if ( is_array( $value ) ) {
+			$flat = array();
+			foreach ( $value as $key => $item ) {
+				if ( is_array( $item ) ) {
+					$flat[] = sanitize_text_field( $key ) . ': ' . implode( ', ', array_map( 'sanitize_text_field', $item ) );
+				} else {
+					$flat[] = sanitize_text_field( $item );
+				}
+			}
+			$value = implode( ' | ', array_filter( $flat ) );
+		}
+		?>
+		<div class="cto-ai-field"><strong><?php echo esc_html( $label ); ?>:</strong> <?php echo esc_html( '' !== (string) $value ? (string) $value : '—' ); ?></div>
 		<?php
 	}
 
