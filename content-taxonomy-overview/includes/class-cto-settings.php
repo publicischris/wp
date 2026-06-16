@@ -43,6 +43,12 @@ class CTO_Settings {
 				<tr><th scope="row"><label for="cto_model">Modellname</label></th><td><input type="text" class="regular-text" id="cto_model" name="model" value="<?php echo esc_attr( $settings['model'] ); ?>" /></td></tr>
 				<tr><th scope="row">KI-Analyse aktivieren</th><td><label><input type="checkbox" name="enabled" value="1" <?php checked( $settings['enabled'], 1 ); ?> /> <?php esc_html_e( 'Aktivieren, sobald API-Daten gültig sind.', 'content-taxonomy-overview' ); ?></label></td></tr>
 				<tr><th scope="row"><label for="cto_max_chars">Maximal analysierte Zeichen</label></th><td><input type="number" min="500" step="100" id="cto_max_chars" name="max_chars" value="<?php echo esc_attr( $settings['max_chars'] ); ?>" /></td></tr>
+				<tr><th scope="row">KI-Ergebnisse speichern</th><td><label><input type="checkbox" name="save_results" value="1" <?php checked( $settings['save_results'], 1 ); ?> /> <?php esc_html_e( 'KI-Ergebnisse in Post Meta speichern.', 'content-taxonomy-overview' ); ?></label></td></tr>
+				<tr><th scope="row">KI-Analyse nur manuell starten</th><td><label><input type="checkbox" name="manual_only" value="1" <?php checked( $settings['manual_only'], 1 ); ?> /> <?php esc_html_e( 'Keine automatische KI-Analyse ausführen.', 'content-taxonomy-overview' ); ?></label></td></tr>
+				<tr><th scope="row">KI nach regelbasierter Analyse starten</th><td><label><input type="checkbox" name="auto_after_rule" value="1" <?php checked( $settings['auto_after_rule'], 1 ); ?> /> <?php esc_html_e( 'Automatisch nach dem Speichern analysieren, wenn KI aktiviert ist. Standard: aus.', 'content-taxonomy-overview' ); ?></label></td></tr>
+				<tr><th scope="row">Neue Kategorien/Tags erstellen erlauben</th><td><label><input type="checkbox" name="allow_create_terms" value="1" <?php checked( $settings['allow_create_terms'], 1 ); ?> /> <?php esc_html_e( 'Nur nach Admin-Klick neue Kategorien oder Tags aus KI-Empfehlungen erstellen.', 'content-taxonomy-overview' ); ?></label></td></tr>
+				<tr><th scope="row">Neue Custom-Taxonomy-Terms erstellen erlauben</th><td><label><input type="checkbox" name="allow_create_custom_terms" value="1" <?php checked( $settings['allow_create_custom_terms'], 1 ); ?> /> <?php esc_html_e( 'Nur nach Admin-Klick neue Terms in bestehenden Custom Taxonomies erstellen.', 'content-taxonomy-overview' ); ?></label></td></tr>
+				<tr><th scope="row">API Key entfernen</th><td><label><input type="checkbox" name="remove_api_key" value="1" /> <?php esc_html_e( 'Gespeicherten API Key beim Speichern entfernen.', 'content-taxonomy-overview' ); ?></label></td></tr>
 				</tbody></table>
 				<?php submit_button( __( 'Einstellungen speichern', 'content-taxonomy-overview' ) ); ?>
 			</form>
@@ -75,7 +81,11 @@ class CTO_Settings {
 		check_admin_referer( 'cto_test_api' );
 		$result = CTO_AI_Service::test_connection();
 		$notice = is_wp_error( $result ) ? 'api_failed' : 'api_ok';
-		wp_safe_redirect( add_query_arg( array( 'page' => 'content-taxonomy-overview-settings', 'cto_settings_notice' => $notice ), admin_url( 'admin.php' ) ) );
+		$args   = array( 'page' => 'content-taxonomy-overview-settings', 'cto_settings_notice' => $notice );
+		if ( is_wp_error( $result ) ) {
+			$args['cto_error'] = $result->get_error_message();
+		}
+		wp_safe_redirect( add_query_arg( $args, admin_url( 'admin.php' ) ) );
 		exit;
 	}
 
@@ -87,7 +97,8 @@ class CTO_Settings {
 		} elseif ( 'api_ok' === $notice ) {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'API-Verbindung erfolgreich getestet.', 'content-taxonomy-overview' ) . '</p></div>';
 		} elseif ( 'api_failed' === $notice ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'API-Verbindung konnte nicht bestätigt werden.', 'content-taxonomy-overview' ) . '</p></div>';
+			$error = isset( $_GET['cto_error'] ) ? sanitize_text_field( wp_unslash( $_GET['cto_error'] ) ) : __( 'API-Verbindung konnte nicht bestätigt werden.', 'content-taxonomy-overview' );
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html( $error ) . '</p></div>';
 		}
 	}
 }

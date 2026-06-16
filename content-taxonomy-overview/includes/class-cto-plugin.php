@@ -62,5 +62,11 @@ class CTO_Plugin {
 		}
 
 		$this->analyzer->analyze_post( $post_id );
+
+		$settings = CTO_AI_Service::get_settings();
+		if ( ! empty( $settings['auto_after_rule'] ) && empty( $settings['manual_only'] ) && CTO_AI_Service::is_configured() ) {
+			$ai_service = new CTO_AI_Service();
+			$ai_service->analyze_post_with_ai( $post_id );
+		}
 	}
 }
