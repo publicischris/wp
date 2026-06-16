@@ -27,6 +27,7 @@ class CTO_Admin {
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'admin_post_cto_analyze_all', array( $this, 'handle_analyze_all' ) );
 		add_action( 'admin_post_cto_analyze_single', array( $this, 'handle_analyze_single' ) );
+		add_action( 'admin_post_cto_save_columns', array( $this, 'handle_save_columns' ) );
 	}
 
 	/** Register menu. */
@@ -53,11 +54,13 @@ class CTO_Admin {
 		}
 
 		$filters = $this->get_filters();
-		$posts   = $this->get_posts( $filters );
+		$query   = $this->get_posts( $filters );
+		$columns = $this->get_visible_columns();
 		?>
 		<div class="wrap cto-wrap">
 			<h1><?php esc_html_e( 'Content Taxonomy Overview', 'content-taxonomy-overview' ); ?></h1>
 			<?php $this->render_notices(); ?>
+			<?php $this->render_column_options( $columns ); ?>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="cto-actions">
 				<?php wp_nonce_field( 'cto_analyze_all' ); ?>
 				<input type="hidden" name="action" value="cto_analyze_all" />
@@ -67,7 +70,8 @@ class CTO_Admin {
 				<input type="hidden" name="page" value="content-taxonomy-overview" />
 				<?php $this->render_filters( $filters ); ?>
 			</form>
-			<?php $this->render_table( $posts ); ?>
+			<?php $this->render_table( $query->posts, $columns ); ?>
+			<?php $this->render_pagination( $query, $filters ); ?>
 		</div>
 		<?php
 	}
@@ -103,6 +107,8 @@ class CTO_Admin {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( sprintf( __( '%d Inhalte wurden analysiert.', 'content-taxonomy-overview' ), $count ) ) . '</p></div>';
 		} elseif ( 'analyzed_single' === $notice ) {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Der Inhalt wurde neu analysiert.', 'content-taxonomy-overview' ) . '</p></div>';
+		} elseif ( 'columns_saved' === $notice ) {
+			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Spaltenauswahl gespeichert.', 'content-taxonomy-overview' ) . '</p></div>';
 		}
 	}
 
@@ -118,19 +124,22 @@ class CTO_Admin {
 			's'         => isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : '',
 			'orderby'   => isset( $_GET['orderby'] ) ? sanitize_key( wp_unslash( $_GET['orderby'] ) ) : 'date',
 			'order'     => isset( $_GET['order'] ) && 'asc' === strtolower( sanitize_key( wp_unslash( $_GET['order'] ) ) ) ? 'ASC' : 'DESC',
+			'per_page'  => isset( $_GET['per_page'] ) && in_array( absint( $_GET['per_page'] ), array( 20, 50, 100 ), true ) ? absint( $_GET['per_page'] ) : 20,
+			'paged'     => isset( $_GET['paged'] ) ? max( 1, absint( $_GET['paged'] ) ) : 1,
 		);
 	}
 
 	/** Query posts.
 	 *
 	 * @param array $filters Filters.
-	 * @return WP_Post[]
+	 * @return WP_Query
 	 */
 	private function get_posts( $filters ) {
 		$args = array(
 			'post_type'      => in_array( $filters['post_type'], CTO_Utils::supported_post_types(), true ) ? $filters['post_type'] : CTO_Utils::supported_post_types(),
 			'post_status'    => in_array( $filters['status'], CTO_Utils::supported_statuses(), true ) ? $filters['status'] : CTO_Utils::supported_statuses(),
-			'posts_per_page' => 100,
+			'posts_per_page' => $filters['per_page'],
+			'paged'          => $filters['paged'],
 			's'              => $filters['s'],
 		);
 
@@ -156,7 +165,7 @@ class CTO_Admin {
 			);
 		}
 
-		return get_posts( $args );
+		return new WP_Query( $args );
 	}
 
 	/** Render filters.
@@ -171,23 +180,106 @@ class CTO_Admin {
 		<input type="search" name="s" value="<?php echo esc_attr( $filters['s'] ); ?>" placeholder="<?php esc_attr_e( 'Titel suchen', 'content-taxonomy-overview' ); ?>" />
 		<select name="orderby"><option value="date" <?php selected( $filters['orderby'], 'date' ); ?>>Datum</option><option value="score" <?php selected( $filters['orderby'], 'score' ); ?>>Score</option><option value="status" <?php selected( $filters['orderby'], 'status' ); ?>>Status</option><option value="post_type" <?php selected( $filters['orderby'], 'post_type' ); ?>>Post Type</option></select>
 		<select name="order"><option value="DESC" <?php selected( $filters['order'], 'DESC' ); ?>>DESC</option><option value="ASC" <?php selected( $filters['order'], 'ASC' ); ?>>ASC</option></select>
+		<select name="per_page"><option value="20" <?php selected( $filters['per_page'], 20 ); ?>>20</option><option value="50" <?php selected( $filters['per_page'], 50 ); ?>>50</option><option value="100" <?php selected( $filters['per_page'], 100 ); ?>>100</option></select>
+		<input type="hidden" name="paged" value="1" />
 		<?php submit_button( __( 'Filtern', 'content-taxonomy-overview' ), 'secondary', 'submit', false ); ?>
 		<?php
+	}
+
+
+	/** Get table columns.
+	 *
+	 * @return array
+	 */
+	private function get_columns() {
+		return array(
+			'title'        => __( 'Titel', 'content-taxonomy-overview' ),
+			'post_type'    => __( 'Post Type', 'content-taxonomy-overview' ),
+			'status'       => __( 'Status', 'content-taxonomy-overview' ),
+			'date'         => __( 'Datum', 'content-taxonomy-overview' ),
+			'categories'   => __( 'Kategorien', 'content-taxonomy-overview' ),
+			'tags'         => __( 'Tags', 'content-taxonomy-overview' ),
+			'custom_tax'   => __( 'Custom Taxonomies', 'content-taxonomy-overview' ),
+			'words'        => __( 'Wörter', 'content-taxonomy-overview' ),
+			'internal'     => __( 'Interne Links', 'content-taxonomy-overview' ),
+			'external'     => __( 'Externe Links', 'content-taxonomy-overview' ),
+			'h2'           => __( 'H2', 'content-taxonomy-overview' ),
+			'featured'     => __( 'Featured Image', 'content-taxonomy-overview' ),
+			'tax_score'    => __( 'Taxonomie', 'content-taxonomy-overview' ),
+			'struct_score' => __( 'Struktur', 'content-taxonomy-overview' ),
+			'total_score'  => __( 'Gesamt', 'content-taxonomy-overview' ),
+			'notice'       => __( 'Hinweis', 'content-taxonomy-overview' ),
+			'action'       => __( 'Aktion', 'content-taxonomy-overview' ),
+		);
+	}
+
+	/** Get visible columns for current user.
+	 *
+	 * @return string[]
+	 */
+	private function get_visible_columns() {
+		$columns = array_keys( $this->get_columns() );
+		$saved   = get_user_meta( get_current_user_id(), 'cto_visible_columns', true );
+
+		if ( ! is_array( $saved ) || empty( $saved ) ) {
+			return $columns;
+		}
+
+		$visible = array_values( array_intersect( $columns, array_map( 'sanitize_key', $saved ) ) );
+		return empty( $visible ) ? $columns : $visible;
+	}
+
+	/** Render column visibility options.
+	 *
+	 * @param string[] $visible_columns Visible columns.
+	 */
+	private function render_column_options( $visible_columns ) {
+		$columns = $this->get_columns();
+		?>
+		<details class="cto-column-options">
+			<summary><?php esc_html_e( 'Spalten ein-/ausblenden', 'content-taxonomy-overview' ); ?></summary>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<?php wp_nonce_field( 'cto_save_columns' ); ?>
+				<input type="hidden" name="action" value="cto_save_columns" />
+				<?php foreach ( $columns as $key => $label ) : ?>
+					<label><input type="checkbox" name="columns[]" value="<?php echo esc_attr( $key ); ?>" <?php checked( in_array( $key, $visible_columns, true ) ); ?> /> <?php echo esc_html( $label ); ?></label>
+				<?php endforeach; ?>
+				<?php submit_button( __( 'Spalten speichern', 'content-taxonomy-overview' ), 'secondary', 'submit', false ); ?>
+			</form>
+		</details>
+		<?php
+	}
+
+	/** Save column visibility options. */
+	public function handle_save_columns() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'Insufficient permissions.', 'content-taxonomy-overview' ) );
+		}
+
+		check_admin_referer( 'cto_save_columns' );
+		$allowed = array_keys( $this->get_columns() );
+		$columns = isset( $_POST['columns'] ) && is_array( $_POST['columns'] ) ? array_map( 'sanitize_key', wp_unslash( $_POST['columns'] ) ) : array();
+		$columns = array_values( array_intersect( $allowed, $columns ) );
+
+		update_user_meta( get_current_user_id(), 'cto_visible_columns', empty( $columns ) ? $allowed : $columns );
+		wp_safe_redirect( add_query_arg( array( 'page' => 'content-taxonomy-overview', 'cto_notice' => 'columns_saved' ), admin_url( 'admin.php' ) ) );
+		exit;
 	}
 
 	/** Render table.
 	 *
 	 * @param WP_Post[] $posts Posts.
 	 */
-	private function render_table( $posts ) {
+	private function render_table( $posts, $visible_columns ) {
+		$columns = $this->get_columns();
 		?>
 		<table class="widefat fixed striped cto-table">
-		<thead><tr><th>Titel</th><th>Post Type</th><th>Status</th><th>Datum</th><th>Kategorien</th><th>Tags</th><th>Custom Taxonomies</th><th>Wörter</th><th>Interne Links</th><th>Externe Links</th><th>H2</th><th>Featured Image</th><th>Taxonomie</th><th>Struktur</th><th>Gesamt</th><th>Hinweis</th><th>Aktion</th></tr></thead>
+		<thead><tr><?php foreach ( $columns as $key => $label ) : ?><?php if ( in_array( $key, $visible_columns, true ) ) : ?><th><?php echo esc_html( $label ); ?></th><?php endif; ?><?php endforeach; ?></tr></thead>
 		<tbody>
 		<?php if ( empty( $posts ) ) : ?>
-			<tr><td colspan="17"><?php esc_html_e( 'Keine Inhalte gefunden.', 'content-taxonomy-overview' ); ?></td></tr>
+			<tr><td colspan="<?php echo esc_attr( count( $visible_columns ) ); ?>"><?php esc_html_e( 'Keine Inhalte gefunden.', 'content-taxonomy-overview' ); ?></td></tr>
 		<?php endif; ?>
-		<?php foreach ( $posts as $post ) : $this->render_row( $post ); endforeach; ?>
+		<?php foreach ( $posts as $post ) : $this->render_row( $post, $visible_columns ); endforeach; ?>
 		</tbody></table>
 		<?php
 	}
@@ -196,7 +288,7 @@ class CTO_Admin {
 	 *
 	 * @param WP_Post $post Post.
 	 */
-	private function render_row( $post ) {
+	private function render_row( $post, $visible_columns ) {
 		$data = get_post_meta( $post->ID, '_cto_analysis_data', true );
 		if ( ! is_array( $data ) ) {
 			$data = array( 'taxonomies' => array(), 'content' => array() );
@@ -210,16 +302,101 @@ class CTO_Admin {
 				$custom[] = $info['label'] . ': ' . implode( ', ', $info['terms'] );
 			}
 		}
-		$action = wp_nonce_url( add_query_arg( array( 'action' => 'cto_analyze_single', 'post_id' => $post->ID ), admin_url( 'admin-post.php' ) ), 'cto_analyze_single_' . $post->ID );
+		$action       = wp_nonce_url( add_query_arg( array( 'action' => 'cto_analyze_single', 'post_id' => $post->ID ), admin_url( 'admin-post.php' ) ), 'cto_analyze_single_' . $post->ID );
+		$status       = (string) get_post_meta( $post->ID, '_cto_analysis_status', true );
+		$status_class = $this->get_status_class( $status );
+		$row          = array(
+			'title'        => '<a href="' . esc_url( get_edit_post_link( $post->ID ) ) . '">' . esc_html( get_the_title( $post ) ) . '</a>',
+			'post_type'    => esc_html( $post->post_type ),
+			'status'       => esc_html( $post->post_status ),
+			'date'         => esc_html( get_the_modified_date( 'd.m.Y', $post ) ),
+			'categories'   => esc_html( implode( ', ', isset( $tax['category_terms'] ) ? $tax['category_terms'] : array() ) ),
+			'tags'         => esc_html( implode( ', ', isset( $tax['tag_terms'] ) ? $tax['tag_terms'] : array() ) ),
+			'custom_tax'   => esc_html( implode( ' | ', $custom ) ),
+			'words'        => esc_html( isset( $content['word_count'] ) ? $content['word_count'] : '—' ),
+			'internal'     => esc_html( isset( $content['internal_links'] ) ? $content['internal_links'] : '—' ),
+			'external'     => esc_html( isset( $content['external_links'] ) ? $content['external_links'] : '—' ),
+			'h2'           => esc_html( isset( $content['h2_count'] ) ? $content['h2_count'] : '—' ),
+			'featured'     => ! empty( $content['featured_image'] ) ? esc_html__( 'Ja', 'content-taxonomy-overview' ) : esc_html__( 'Nein', 'content-taxonomy-overview' ),
+			'tax_score'    => esc_html( get_post_meta( $post->ID, '_cto_taxonomy_score', true ) ),
+			'struct_score' => esc_html( get_post_meta( $post->ID, '_cto_structure_score', true ) ),
+			'total_score'  => '<strong>' . esc_html( get_post_meta( $post->ID, '_cto_total_score', true ) ) . '</strong>',
+			'notice'       => '<span class="cto-status cto-status-' . esc_attr( $status_class ) . '">' . esc_html( $status ) . '</span>',
+			'action'       => '<a class="button button-small" href="' . esc_url( $action ) . '">' . esc_html__( 'Neu analysieren', 'content-taxonomy-overview' ) . '</a>',
+		);
 		?>
 		<tr>
-			<td><a href="<?php echo esc_url( get_edit_post_link( $post->ID ) ); ?>"><?php echo esc_html( get_the_title( $post ) ); ?></a></td>
-			<td><?php echo esc_html( $post->post_type ); ?></td><td><?php echo esc_html( $post->post_status ); ?></td><td><?php echo esc_html( get_the_modified_date( '', $post ) ); ?></td>
-			<td><?php echo esc_html( implode( ', ', isset( $tax['category_terms'] ) ? $tax['category_terms'] : array() ) ); ?></td><td><?php echo esc_html( implode( ', ', isset( $tax['tag_terms'] ) ? $tax['tag_terms'] : array() ) ); ?></td><td><?php echo esc_html( implode( ' | ', $custom ) ); ?></td>
-			<td><?php echo esc_html( isset( $content['word_count'] ) ? $content['word_count'] : '—' ); ?></td><td><?php echo esc_html( isset( $content['internal_links'] ) ? $content['internal_links'] : '—' ); ?></td><td><?php echo esc_html( isset( $content['external_links'] ) ? $content['external_links'] : '—' ); ?></td><td><?php echo esc_html( isset( $content['h2_count'] ) ? $content['h2_count'] : '—' ); ?></td><td><?php echo ! empty( $content['featured_image'] ) ? esc_html__( 'Ja', 'content-taxonomy-overview' ) : esc_html__( 'Nein', 'content-taxonomy-overview' ); ?></td>
-			<td><?php echo esc_html( get_post_meta( $post->ID, '_cto_taxonomy_score', true ) ); ?></td><td><?php echo esc_html( get_post_meta( $post->ID, '_cto_structure_score', true ) ); ?></td><td><strong><?php echo esc_html( get_post_meta( $post->ID, '_cto_total_score', true ) ); ?></strong></td><td><span class="cto-status cto-status-<?php echo esc_attr( sanitize_html_class( get_post_meta( $post->ID, '_cto_analysis_status', true ) ) ); ?>"><?php echo esc_html( get_post_meta( $post->ID, '_cto_analysis_status', true ) ); ?></span></td>
-			<td><a class="button button-small" href="<?php echo esc_url( $action ); ?>"><?php esc_html_e( 'Neu analysieren', 'content-taxonomy-overview' ); ?></a></td>
+			<?php foreach ( $row as $key => $value ) : ?>
+				<?php if ( in_array( $key, $visible_columns, true ) ) : ?>
+					<td><?php echo wp_kses_post( $value ); ?></td>
+				<?php endif; ?>
+			<?php endforeach; ?>
 		</tr>
 		<?php
+	}
+
+
+	/** Map a status label to a stable CSS class.
+	 *
+	 * @param string $status Status label.
+	 * @return string
+	 */
+	private function get_status_class( $status ) {
+		if ( 'OK' === $status ) {
+			return 'ok';
+		}
+
+		if ( 'Prüfen' === $status ) {
+			return 'review';
+		}
+
+		if ( 'Unvollständig' === $status ) {
+			return 'incomplete';
+		}
+
+		return 'unknown';
+	}
+
+	/** Render pagination controls.
+	 *
+	 * @param WP_Query $query Query.
+	 * @param array    $filters Filters.
+	 */
+	private function render_pagination( $query, $filters ) {
+		$total_pages = (int) $query->max_num_pages;
+		if ( $total_pages <= 1 ) {
+			return;
+		}
+
+		$base_args = array_filter(
+			array(
+				'page'          => 'content-taxonomy-overview',
+				'cto_post_type' => $filters['post_type'],
+				'cto_status'    => $filters['status'],
+				'cto_rating'    => $filters['rating'],
+				's'             => $filters['s'],
+				'orderby'       => $filters['orderby'],
+				'order'         => $filters['order'],
+				'per_page'      => $filters['per_page'],
+			),
+			static function ( $value ) {
+				return '' !== $value && null !== $value;
+			}
+		);
+
+		echo '<div class="tablenav bottom"><div class="tablenav-pages">';
+		echo wp_kses_post(
+			paginate_links(
+				array(
+					'base'      => add_query_arg( array_merge( $base_args, array( 'paged' => '%#%' ) ), admin_url( 'admin.php' ) ),
+					'format'    => '',
+					'current'   => max( 1, (int) $filters['paged'] ),
+					'total'     => $total_pages,
+					'prev_text' => __( '&laquo;', 'content-taxonomy-overview' ),
+					'next_text' => __( '&raquo;', 'content-taxonomy-overview' ),
+				)
+			)
+		);
+		echo '</div></div>';
 	}
 }

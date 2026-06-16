@@ -15,7 +15,7 @@ Rule-based WordPress admin overview for taxonomy and content-structure completen
 3. Open Content Taxonomy in the admin menu.
 
 == Usage ==
-Use "Alle Inhalte neu analysieren" for a full refresh or "Neu analysieren" in a table row for one post/page. The plugin only analyzes and stores scores in post meta; it does not modify content or taxonomies.
+Use "Alle Inhalte neu analysieren" for a full refresh or "Neu analysieren" in a table row for one post/page. The overview supports pagination with 20, 50 or 100 items per page and per-user column visibility controls. The plugin only analyzes and stores scores in post meta; it does not modify content or taxonomies.
 
 == Stored Meta Keys ==
 * _cto_taxonomy_score
@@ -34,6 +34,7 @@ Use "Alle Inhalte neu analysieren" for a full refresh or "Neu analysieren" in a 
 * admin_post_cto_analyze_single
 * admin_post_cto_save_settings
 * admin_post_cto_test_api
+* admin_post_cto_save_columns
 
 == Phase 2 Prepared ==
 The plugin includes CTO_AI_Service, secure settings storage, masked API-key display, a connection test, and a placeholder analyze_with_ai($post_id). No AI categorization or automatic content/taxonomy changes are performed.
