@@ -52,10 +52,10 @@ class CTO_Admin {
 		wp_enqueue_style( 'cto-admin', CTO_PLUGIN_URL . 'assets/admin.css', array(), CTO_VERSION );
 		wp_enqueue_script( 'cto-admin', CTO_PLUGIN_URL . 'assets/admin.js', array(), CTO_VERSION, true );
 		wp_localize_script( 'cto-admin', 'ctoAdmin', array(
-			'ajaxUrl'    => admin_url( 'admin-ajax.php' ),
-			'working'    => __( 'Wird verarbeitet…', 'content-taxonomy-overview' ),
-			'success'    => __( 'Aktion erfolgreich. Ansicht wird aktualisiert…', 'content-taxonomy-overview' ),
-			'error'      => __( 'Die Aktion ist fehlgeschlagen.', 'content-taxonomy-overview' ),
+			'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+			'working' => __( 'Wird verarbeitet…', 'content-taxonomy-overview' ),
+			'success' => __( 'Aktion erfolgreich ausgeführt.', 'content-taxonomy-overview' ),
+			'error'   => __( 'Die Aktion ist fehlgeschlagen.', 'content-taxonomy-overview' ),
 		) );
 	}
 
@@ -309,7 +309,7 @@ class CTO_Admin {
 	 */
 	private function render_filters( $filters ) {
 		?>
-		<select name="cto_post_type"><option value=""><?php esc_html_e( 'Alle Post Types', 'content-taxonomy-overview' ); ?></option><option value="post" <?php selected( $filters['post_type'], 'post' ); ?>>Posts</option><option value="page" <?php selected( $filters['post_type'], 'page' ); ?>>Pages</option></select>
+		<select name="cto_post_type"><option value=""><?php esc_html_e( 'Alle Post Types', 'content-taxonomy-overview' ); ?></option><?php foreach ( CTO_Utils::supported_post_type_objects() as $post_type => $post_type_object ) : ?><option value="<?php echo esc_attr( $post_type ); ?>" <?php selected( $filters['post_type'], $post_type ); ?>><?php echo esc_html( $post_type_object->labels->name ); ?></option><?php endforeach; ?></select>
 		<select name="cto_status"><option value=""><?php esc_html_e( 'Alle Status', 'content-taxonomy-overview' ); ?></option><option value="publish" <?php selected( $filters['status'], 'publish' ); ?>>Published</option><option value="draft" <?php selected( $filters['status'], 'draft' ); ?>>Draft</option></select>
 		<select name="cto_rating"><option value=""><?php esc_html_e( 'Alle Bewertungen', 'content-taxonomy-overview' ); ?></option><option value="OK" <?php selected( $filters['rating'], 'OK' ); ?>>OK</option><option value="Prüfen" <?php selected( $filters['rating'], 'Prüfen' ); ?>>Prüfen</option><option value="Unvollständig" <?php selected( $filters['rating'], 'Unvollständig' ); ?>>Unvollständig</option></select>
 		<input type="search" name="s" value="<?php echo esc_attr( $filters['s'] ); ?>" placeholder="<?php esc_attr_e( 'Titel suchen', 'content-taxonomy-overview' ); ?>" />
@@ -329,7 +329,11 @@ class CTO_Admin {
 
 	/** Render dashboard summary. */
 	private function render_summary() {
-		$total = wp_count_posts( 'post' )->publish + wp_count_posts( 'post' )->draft + wp_count_posts( 'page' )->publish + wp_count_posts( 'page' )->draft;
+		$total = 0;
+		foreach ( CTO_Utils::supported_post_types() as $post_type ) {
+			$counts = wp_count_posts( $post_type );
+			$total += (int) ( $counts->publish ?? 0 ) + (int) ( $counts->draft ?? 0 );
+		}
 		$ok = $this->count_meta( '_cto_analysis_status', 'OK' );
 		$review = $this->count_meta( '_cto_analysis_status', 'Prüfen' );
 		$incomplete = $this->count_meta( '_cto_analysis_status', 'Unvollständig' );
@@ -551,13 +555,16 @@ class CTO_Admin {
 	/** Render one workflow item group. */
 	private function render_workflow_items( $post, $group, $label, $items, $statuses, $parent_index = 0, $link_only = false ) {
 		foreach ( (array) $items as $index => $item ) {
-			$key_index = 'recommended_custom_taxonomies' === $group ? $parent_index . '_' . $index : $index;
-			$key = CTO_AI_Service::recommendation_key( $group, $key_index, $item );
-			$status = isset( $statuses[ $key ] ) ? $statuses[ $key ] : 'open';
-			$name = is_array( $item ) ? ( $item['name'] ?? $item['title'] ?? $item['recommendation'] ?? '' ) : (string) $item;
-			$reason = is_array( $item ) ? ( $item['reason'] ?? '' ) : '';
+			$key_index  = 'recommended_custom_taxonomies' === $group ? $parent_index . '_' . $index : $index;
+			$key        = CTO_AI_Service::recommendation_key( $group, $key_index, $item );
+			$status     = isset( $statuses[ $key ] ) ? $statuses[ $key ] : 'open';
+			if ( 'open' !== $status ) {
+				continue;
+			}
+			$name       = is_array( $item ) ? ( $item['name'] ?? $item['title'] ?? $item['recommendation'] ?? '' ) : (string) $item;
+			$reason     = is_array( $item ) ? ( $item['reason'] ?? '' ) : '';
 			$confidence = is_array( $item ) && isset( $item['confidence'] ) ? ' (' . esc_html( $item['confidence'] ) . ')' : '';
-			echo '<div class="cto-workflow-item"><strong>' . esc_html( $label ) . ':</strong> ' . esc_html( $name ) . esc_html( $confidence ) . '<br><span class="description">' . esc_html( $reason ) . '</span><br><em>' . esc_html__( 'Status:', 'content-taxonomy-overview' ) . ' ' . esc_html( $status ) . '</em> ';
+			echo '<div class="cto-workflow-item" data-rec-key="' . esc_attr( $key ) . '" data-rec-status="' . esc_attr( $status ) . '"><strong>' . esc_html( $label ) . ':</strong> ' . esc_html( $name ) . esc_html( $confidence ) . '<br><span class="description">' . esc_html( $reason ) . '</span><br><em>' . esc_html__( 'Status:', 'content-taxonomy-overview' ) . ' <span class="cto-rec-status">' . esc_html( $status ) . '</span></em> ';
 			echo wp_kses_post( $this->recommendation_link( $post->ID, $key, $link_only ? 'checked' : 'accept', $link_only ? __( 'als geprüft markieren', 'content-taxonomy-overview' ) : __( 'Übernehmen', 'content-taxonomy-overview' ) ) );
 			echo ' ' . wp_kses_post( $this->recommendation_link( $post->ID, $key, 'ignore', __( 'Ignorieren', 'content-taxonomy-overview' ) ) );
 			echo ' ' . wp_kses_post( $this->recommendation_link( $post->ID, $key, 'reset', __( 'Zurücksetzen', 'content-taxonomy-overview' ) ) );
@@ -709,6 +716,10 @@ class CTO_Admin {
 				'orderby'       => $filters['orderby'],
 				'order'         => $filters['order'],
 				'per_page'      => $filters['per_page'],
+				'cto_ai_status' => $filters['ai_status'],
+				'cto_rec_status'=> $filters['rec_status'],
+				'cto_intent'    => $filters['intent'],
+				'cto_cluster'   => $filters['cluster'],
 			),
 			static function ( $value ) {
 				return '' !== $value && null !== $value;

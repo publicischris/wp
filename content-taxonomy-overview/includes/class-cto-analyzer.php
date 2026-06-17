@@ -116,6 +116,8 @@ class CTO_Analyzer {
 		$tag_terms      = isset( $assignments['post_tag']['terms'] ) ? $assignments['post_tag']['terms'] : array();
 
 		return array(
+			'category_taxonomy_exists' => isset( $assignments['category'] ),
+			'tag_taxonomy_exists'      => isset( $assignments['post_tag'] ),
 			'assignments'              => $assignments,
 			'category_terms'           => $category_terms,
 			'tag_terms'                => $tag_terms,
@@ -136,10 +138,10 @@ class CTO_Analyzer {
 	 */
 	private function calculate_taxonomy_score( $data ) {
 		$score = 0;
-		$score += ! empty( $data['has_category'] ) ? 30 : 0;
-		$score += ! empty( $data['has_tag'] ) ? 20 : 0;
+		$score += empty( $data['category_taxonomy_exists'] ) || ! empty( $data['has_category'] ) ? 30 : 0;
+		$score += empty( $data['tag_taxonomy_exists'] ) || ! empty( $data['has_tag'] ) ? 20 : 0;
 		$score += ( (int) $data['total_terms'] > 1 ) ? 20 : 0;
-		$score += empty( $data['has_default_category'] ) ? 20 : 0;
+		$score += empty( $data['category_taxonomy_exists'] ) || empty( $data['has_default_category'] ) ? 20 : 0;
 		$score += ( ! empty( $data['custom_taxonomies_exist'] ) && ! empty( $data['has_custom_taxonomy_term'] ) ) ? 10 : 0;
 
 		return min( 100, $score );

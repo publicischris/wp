@@ -26,6 +26,29 @@
 		}
 	}
 
+	function updateRecommendationCard(link, payload) {
+		var action = link.dataset.recAction || '';
+		var card = link.closest('.cto-workflow-item');
+		if (!card) { return; }
+
+		if (action === 'accept' || action === 'ignore' || action === 'checked') {
+			card.classList.add('cto-workflow-item-processed');
+			window.setTimeout(function(){ card.remove(); }, 220);
+			return;
+		}
+
+		if (action === 'reset') {
+			card.dataset.recStatus = (payload && payload.data && payload.data.status) || 'open';
+			var status = card.querySelector('.cto-rec-status');
+			if (status) { status.textContent = card.dataset.recStatus; }
+		}
+	}
+
+	function markButtonDone(link) {
+		link.classList.add('cto-action-done');
+		window.setTimeout(function(){ link.classList.remove('cto-action-done'); }, 2200);
+	}
+
 	function ajaxAction(link) {
 		var type = link.dataset.ctoAjax;
 		var body = new window.URLSearchParams();
@@ -54,7 +77,12 @@
 				throw new Error(payload && payload.data && payload.data.message ? payload.data.message : ((window.ctoAdmin && ctoAdmin.error) || 'Fehler'));
 			}
 			showNotice(payload.data && payload.data.message ? payload.data.message : ((window.ctoAdmin && ctoAdmin.success) || 'Erfolgreich'), 'success');
-			window.setTimeout(function(){ window.location.reload(); }, 700);
+			if (type === 'recommendation') {
+				updateRecommendationCard(link, payload);
+			} else {
+				markButtonDone(link);
+			}
+			setBusy(link, false);
 		}).catch(function(error){
 			showNotice(error.message, 'error');
 			setBusy(link, false);

@@ -203,6 +203,8 @@ class CTO_AI_Service {
 			return $result;
 		}
 
+		$result = $this->filter_result_for_post_type( $post, $result );
+
 		if ( ! empty( $settings['save_results'] ) ) {
 			$this->store_result( $post_id, $result, $content );
 		}
@@ -226,6 +228,7 @@ class CTO_AI_Service {
 			'post_type'                => $post->post_type,
 			'existing_terms'           => $this->get_existing_terms( $post ),
 			'available_terms'          => $this->get_available_terms( $post->post_type ),
+			'registered_taxonomies'    => $this->get_registered_taxonomies_context( $post->post_type ),
 			'rule_based_scores'        => array(
 				'taxonomy'  => get_post_meta( $post->ID, '_cto_taxonomy_score', true ),
 				'structure' => get_post_meta( $post->ID, '_cto_structure_score', true ),
@@ -244,7 +247,7 @@ class CTO_AI_Service {
 			'messages'        => array(
 				array(
 					'role'    => 'system',
-					'content' => 'Du bist ein vorsichtiger WordPress-Content-Stratege. Analysiere nur und gib ausschließlich valides JSON zurück. Verändere keine Inhalte, entscheide nichts automatisch und behaupte niemals, Taxonomien oder Inhalte geändert zu haben. Nutze kurze deutsche Empfehlungen mit Begründung. Das JSON muss diesem Schema entsprechen: ' . $schema_description,
+					'content' => 'Du bist ein vorsichtiger WordPress-Content-Stratege. Analysiere nur und gib ausschließlich valides JSON zurück. Verändere keine Inhalte, entscheide nichts automatisch und behaupte niemals, Taxonomien oder Inhalte geändert zu haben. Empfiehl Kategorien nur, wenn die Taxonomie category im Kontext registriert ist; empfiehl Tags nur, wenn post_tag registriert ist; Custom-Taxonomy-Empfehlungen dürfen ausschließlich die im Kontext genannten registrierten Taxonomie-Slugs verwenden. Nutze kurze deutsche Empfehlungen mit Begründung. Das JSON muss diesem Schema entsprechen: ' . $schema_description,
 				),
 				array(
 					'role'    => 'user',
@@ -276,6 +279,39 @@ class CTO_AI_Service {
 			'summary'                          => sanitize_textarea_field( $data['summary'] ?? '' ),
 			'recommendations'                  => $this->sanitize_general_recommendations( $data['recommendations'] ?? array() ),
 		); }
+
+
+
+	/** Keep AI recommendations compatible with the analyzed post type.
+	 *
+	 * @param WP_Post $post Post object.
+	 * @param array   $result Parsed AI result.
+	 * @return array
+	 */
+	private function filter_result_for_post_type( $post, $result ) {
+		$taxonomies = get_object_taxonomies( $post->post_type );
+		$taxonomies = is_array( $taxonomies ) ? $taxonomies : array();
+
+		if ( ! in_array( 'category', $taxonomies, true ) ) {
+			$result['recommended_categories'] = array();
+		}
+
+		if ( ! in_array( 'post_tag', $taxonomies, true ) ) {
+			$result['recommended_tags'] = array();
+		}
+
+		$result['recommended_custom_taxonomies'] = array_values(
+			array_filter(
+				(array) ( $result['recommended_custom_taxonomies'] ?? array() ),
+				static function ( $item ) use ( $post, $taxonomies ) {
+					$taxonomy = isset( $item['taxonomy'] ) ? sanitize_key( $item['taxonomy'] ) : '';
+					return '' !== $taxonomy && in_array( $taxonomy, $taxonomies, true ) && taxonomy_exists( $taxonomy ) && is_object_in_taxonomy( $post->post_type, $taxonomy );
+				}
+			)
+		);
+
+		return $result;
+	}
 
 	/** Store AI result in requested meta keys.
 	 *
@@ -345,10 +381,24 @@ class CTO_AI_Service {
 
 	/** Get assigned terms grouped by taxonomy. */
 	private function get_existing_terms( $post ) { $existing = array(); foreach ( get_object_taxonomies( $post->post_type, 'objects' ) as $taxonomy => $taxonomy_object ) { $terms = get_the_terms( $post, $taxonomy ); $existing[ $taxonomy ] = array( 'label' => $taxonomy_object->labels->name, 'terms' => is_wp_error( $terms ) || empty( $terms ) ? array() : wp_list_pluck( $terms, 'name' ) ); } return $existing; }
+
+	/** Get registered taxonomy context for prompts. */
+	private function get_registered_taxonomies_context( $post_type ) {
+		$context = array();
+		foreach ( get_object_taxonomies( $post_type, 'objects' ) as $taxonomy => $taxonomy_object ) {
+			$context[] = array(
+				'slug'       => $taxonomy,
+				'label'      => $taxonomy_object->labels->name,
+				'is_builtin' => ! empty( $taxonomy_object->_builtin ),
+			);
+		}
+		return $context;
+	}
+
 	/** Get available term names. */
 	private function get_available_terms( $post_type ) { $available = array(); foreach ( get_object_taxonomies( $post_type, 'objects' ) as $taxonomy => $taxonomy_object ) { $terms = get_terms( array( 'taxonomy' => $taxonomy, 'hide_empty' => false, 'number' => 50, 'fields' => 'names' ) ); if ( ! is_wp_error( $terms ) ) { $available[ $taxonomy ] = array( 'label' => $taxonomy_object->labels->name, 'terms' => $terms ); } } return $available; }
 	/** Get internal link candidates. */
-	private function get_internal_link_candidates( $post ) { $term_ids = wp_get_object_terms( $post->ID, array( 'category', 'post_tag' ), array( 'fields' => 'ids' ) ); $args = array( 'post_type' => CTO_Utils::supported_post_types(), 'post_status' => 'publish', 'posts_per_page' => 20, 'post__not_in' => array( $post->ID ), 'orderby' => 'modified', 'order' => 'DESC', 'no_found_rows' => true ); if ( ! is_wp_error( $term_ids ) && ! empty( $term_ids ) ) { $args['tax_query'] = array( array( 'taxonomy' => 'category', 'field' => 'term_id', 'terms' => $term_ids, 'operator' => 'IN' ) ); } $q = new WP_Query( $args ); if ( empty( $q->posts ) && isset( $args['tax_query'] ) ) { unset( $args['tax_query'] ); $q = new WP_Query( $args ); } $items = array(); foreach ( $q->posts as $candidate ) { $items[] = array( 'post_id' => $candidate->ID, 'title' => get_the_title( $candidate ), 'url' => get_permalink( $candidate ), 'excerpt' => wp_trim_words( wp_strip_all_tags( $candidate->post_excerpt ? $candidate->post_excerpt : $candidate->post_content ), 24 ) ); } return $items; }
+	private function get_internal_link_candidates( $post ) { $taxonomies = get_object_taxonomies( $post->post_type ); $term_ids = ! empty( $taxonomies ) ? wp_get_object_terms( $post->ID, $taxonomies, array( 'fields' => 'ids' ) ) : array(); $args = array( 'post_type' => CTO_Utils::supported_post_types(), 'post_status' => 'publish', 'posts_per_page' => 20, 'post__not_in' => array( $post->ID ), 'orderby' => 'modified', 'order' => 'DESC', 'no_found_rows' => true ); if ( ! is_wp_error( $term_ids ) && ! empty( $term_ids ) && ! empty( $taxonomies ) ) { $args['tax_query'] = array( 'relation' => 'OR' ); foreach ( $taxonomies as $taxonomy ) { $args['tax_query'][] = array( 'taxonomy' => $taxonomy, 'field' => 'term_id', 'terms' => $term_ids, 'operator' => 'IN' ); } } $q = new WP_Query( $args ); if ( empty( $q->posts ) && isset( $args['tax_query'] ) ) { unset( $args['tax_query'] ); $q = new WP_Query( $args ); } $items = array(); foreach ( $q->posts as $candidate ) { $items[] = array( 'post_id' => $candidate->ID, 'title' => get_the_title( $candidate ), 'url' => get_permalink( $candidate ), 'excerpt' => wp_trim_words( wp_strip_all_tags( $candidate->post_excerpt ? $candidate->post_excerpt : $candidate->post_content ), 24 ) ); } return $items; }
 	/** Log important actions without secrets. */
 	public static function log( $event, $post_id = 0, $message = '' ) { $log = get_option( self::LOG_OPTION, array() ); $log = is_array( $log ) ? $log : array(); array_unshift( $log, array( 'time' => current_time( 'mysql' ), 'event' => sanitize_key( $event ), 'post_id' => absint( $post_id ), 'message' => sanitize_text_field( $message ), 'user_id' => get_current_user_id() ) ); update_option( self::LOG_OPTION, array_slice( $log, 0, 100 ), false ); }
 }

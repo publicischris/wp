@@ -53,7 +53,35 @@ class CTO_Utils {
 	 * @return string[]
 	 */
 	public static function supported_post_types() {
-		return array( 'post', 'page' );
+		if ( ! function_exists( 'get_post_types' ) ) {
+			return array( 'post', 'page' );
+		}
+
+		$post_types = get_post_types( array( 'show_ui' => true ), 'names' );
+		$post_types = is_array( $post_types ) ? $post_types : array();
+		unset( $post_types['attachment'] );
+
+		$post_types = array_values( array_unique( array_merge( array( 'post', 'page' ), array_values( $post_types ) ) ) );
+
+		return apply_filters( 'cto_supported_post_types', $post_types );
+	}
+
+	/**
+	 * Get supported post type objects keyed by slug.
+	 *
+	 * @return WP_Post_Type[]
+	 */
+	public static function supported_post_type_objects() {
+		$objects = array();
+
+		foreach ( self::supported_post_types() as $post_type ) {
+			$object = get_post_type_object( $post_type );
+			if ( $object ) {
+				$objects[ $post_type ] = $object;
+			}
+		}
+
+		return $objects;
 	}
 
 	/**
