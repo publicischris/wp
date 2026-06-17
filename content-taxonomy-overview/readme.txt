@@ -90,3 +90,4 @@ The plugin does not automatically modify content, insert links, assign terms, or
 - Die Admin-Übersicht enthält eine einklappbare Erklärung der Score-Regeln und pro Inhalt eine Score-Detailansicht mit erfüllten, nicht erfüllten und nicht relevanten Kriterien.
 - `_cto_analysis_data` speichert nach erneuter Analyse zusätzlich `scoring.taxonomy.criteria`, `scoring.structure.criteria` und `scoring.total` mit Status, Punkten und Maximalpunkten pro Kriterium.
 - Die Content-Analyse extrahiert sichtbaren Text aus Avada/Fusion-Shortcode-Strukturen, zählt Wörter per Unicode-RegEx, erkennt HTML- und Fusion-H2-Strukturen und speichert Diagnosewerte unter `content_extraction`.
+- Die Avada/Fusion-Textextraktion nutzt mehrere Strategien: Shortcode-Tag-Cleanup, gerenderten Content als Fallback und ausgewählte Builder-Metafelder. KI-Empfehlungen werden vor der Anzeige gegen aktuelle Terms abgeglichen; bereits vorhandene Terms erscheinen nicht mehr als Übernehmen-Aufgabe.

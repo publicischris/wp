@@ -348,7 +348,24 @@ class CTO_AI_Service {
 		update_post_meta( $post_id, '_cto_ai_recommendations', $result['recommendations'] );
 		update_post_meta( $post_id, '_cto_ai_raw_response', wp_kses_post( $raw ) );
 		update_post_meta( $post_id, '_cto_ai_analysis_data', array_merge( $result, array( 'analyzed_at' => $now, 'automation_performed' => false ) ) );
+		update_post_meta( $post_id, '_cto_ai_input_hash', self::calculate_input_hash( $post_id ) );
 		$this->initialize_recommendation_statuses( $post_id, $result );
+	}
+
+
+
+	/** Calculate a hash for post content and current taxonomy assignments. */
+	public static function calculate_input_hash( $post_id ) {
+		$post = get_post( $post_id );
+		if ( ! $post ) { return ''; }
+		$taxonomies = get_object_taxonomies( $post->post_type );
+		$terms      = array();
+		foreach ( (array) $taxonomies as $taxonomy ) {
+			$ids = wp_get_object_terms( $post_id, $taxonomy, array( 'fields' => 'ids' ) );
+			if ( ! is_wp_error( $ids ) ) { sort( $ids ); $terms[ $taxonomy ] = array_map( 'absint', $ids ); }
+		}
+		ksort( $terms );
+		return hash( 'sha256', wp_json_encode( array( 'content' => (string) $post->post_content, 'terms' => $terms ) ) );
 	}
 
 	/** Store AI error. */

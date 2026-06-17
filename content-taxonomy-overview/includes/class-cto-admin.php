@@ -561,12 +561,18 @@ class CTO_Admin {
 			<h5><?php esc_html_e( 'Content-Extraktion', 'content-taxonomy-overview' ); ?></h5>
 			<ul>
 				<li><?php echo esc_html( sprintf( __( 'Content-Quelle: %s', 'content-taxonomy-overview' ), $extraction['source'] ?? '—' ) ); ?></li>
+				<li><?php echo esc_html( sprintf( __( 'Extraktionsstrategie: %s', 'content-taxonomy-overview' ), $extraction['extraction_strategy_used'] ?? '—' ) ); ?></li>
+				<li><?php echo esc_html( sprintf( __( 'Raw-Länge: %d', 'content-taxonomy-overview' ), absint( $extraction['raw_content_length'] ?? $extraction['raw_length'] ?? 0 ) ) ); ?></li>
 				<li><?php echo esc_html( sprintf( __( 'Avada/Fusion Shortcodes erkannt: %s', 'content-taxonomy-overview' ), ! empty( $extraction['fusion_shortcodes_detected'] ) ? __( 'ja', 'content-taxonomy-overview' ) : __( 'nein', 'content-taxonomy-overview' ) ) ); ?></li>
 				<li><?php echo esc_html( sprintf( __( 'Analysierbarer Text erkannt: %s', 'content-taxonomy-overview' ), $has_text ? __( 'ja', 'content-taxonomy-overview' ) : __( 'nein', 'content-taxonomy-overview' ) ) ); ?></li>
 				<li><?php echo esc_html( sprintf( __( 'Textlänge nach Bereinigung: %d', 'content-taxonomy-overview' ), absint( $extraction['clean_text_length'] ?? 0 ) ) ); ?></li>
 				<li><?php echo esc_html( sprintf( __( 'Linkquellen erkannt: %1$d gesamt, %2$d intern, %3$d extern', 'content-taxonomy-overview' ), absint( $extraction['links_detected'] ?? 0 ), absint( $extraction['internal_links_detected'] ?? 0 ), absint( $extraction['external_links_detected'] ?? 0 ) ) ); ?></li>
+				<li><?php echo esc_html( sprintf( __( 'Wortanzahl nach Bereinigung: %d', 'content-taxonomy-overview' ), absint( $extraction['cleaned_text_word_count'] ?? 0 ) ) ); ?></li>
+				<li><?php echo esc_html( sprintf( __( 'Render-Fallback verwendet: %s', 'content-taxonomy-overview' ), ! empty( $extraction['rendered_fallback_used'] ) ? __( 'ja', 'content-taxonomy-overview' ) : __( 'nein', 'content-taxonomy-overview' ) ) ); ?></li>
+				<li><?php echo esc_html( sprintf( __( 'Regex-Fehler: %s', 'content-taxonomy-overview' ), ! empty( $extraction['shortcode_cleanup_error'] ) ? __( 'ja', 'content-taxonomy-overview' ) : __( 'nein', 'content-taxonomy-overview' ) ) ); ?></li>
 				<li><?php echo esc_html( sprintf( __( 'Wortzählung: %s', 'content-taxonomy-overview' ), $extraction['word_count_method'] ?? '—' ) ); ?></li>
 			</ul>
+			<?php if ( ! empty( $extraction['text_sample'] ) ) : ?><p class="description"><strong><?php esc_html_e( 'Textauszug:', 'content-taxonomy-overview' ); ?></strong> <?php echo esc_html( $extraction['text_sample'] ); ?></p><?php endif; ?>
 			<?php if ( ! $has_text ) : ?>
 				<p class="description"><?php esc_html_e( 'Es konnte kein analysierbarer Text aus dem gespeicherten Inhalt extrahiert werden. Der Inhalt liegt möglicherweise in Page-Builder-Metafeldern oder wird dynamisch erzeugt.', 'content-taxonomy-overview' ); ?></p>
 			<?php endif; ?>
@@ -684,6 +690,7 @@ class CTO_Admin {
 				</summary>
 				<?php $this->render_score_details( $post ); ?>
 				<?php if ( ! empty( $ai_data ) ) : ?>
+				<?php if ( $this->is_ai_analysis_stale( $post->ID ) ) : ?><p class="notice notice-warning cto-stale-ai"><?php esc_html_e( 'Die KI-Analyse basiert möglicherweise auf einem älteren Stand. Bitte bei Bedarf erneut mit KI analysieren.', 'content-taxonomy-overview' ); ?></p><?php endif; ?>
 				<div class="cto-ai-grid">
 					<?php $this->render_ai_field( __( 'Hauptthema', 'content-taxonomy-overview' ), isset( $ai_data['main_topic'] ) ? $ai_data['main_topic'] : '' ); ?>
 					<?php $this->render_ai_field( __( 'Kategorien', 'content-taxonomy-overview' ), isset( $ai_data['recommended_categories'] ) ? $ai_data['recommended_categories'] : array() ); ?>
@@ -725,20 +732,49 @@ class CTO_Admin {
 			$key_index  = 'recommended_custom_taxonomies' === $group ? $parent_index . '_' . $index : $index;
 			$key        = CTO_AI_Service::recommendation_key( $group, $key_index, $item );
 			$status     = isset( $statuses[ $key ] ) ? $statuses[ $key ] : 'open';
-			if ( 'open' !== $status ) {
-				continue;
-			}
 			$name       = is_array( $item ) ? ( $item['name'] ?? $item['title'] ?? $item['recommendation'] ?? '' ) : (string) $item;
 			$reason     = is_array( $item ) ? ( $item['reason'] ?? '' ) : '';
 			$confidence = is_array( $item ) && isset( $item['confidence'] ) ? ' (' . esc_html( $item['confidence'] ) . ')' : '';
-			echo '<div class="cto-workflow-item" data-rec-key="' . esc_attr( $key ) . '" data-rec-status="' . esc_attr( $status ) . '"><strong>' . esc_html( $label ) . ':</strong> ' . esc_html( $name ) . esc_html( $confidence ) . '<br><span class="description">' . esc_html( $reason ) . '</span><br><em>' . esc_html__( 'Status:', 'content-taxonomy-overview' ) . ' <span class="cto-rec-status">' . esc_html( $status ) . '</span></em> ';
-			echo wp_kses_post( $this->recommendation_link( $post->ID, $key, $link_only ? 'checked' : 'accept', $link_only ? __( 'als geprüft markieren', 'content-taxonomy-overview' ) : __( 'Übernehmen', 'content-taxonomy-overview' ) ) );
-			echo ' ' . wp_kses_post( $this->recommendation_link( $post->ID, $key, 'ignore', __( 'Ignorieren', 'content-taxonomy-overview' ) ) );
+			$state      = $this->get_recommendation_application_state( $post, $group, $item, $parent_index, $link_only, $status );
+			if ( in_array( $state['state'], array( 'accepted', 'ignored' ), true ) ) { continue; }
+			echo '<div class="cto-workflow-item" data-rec-key="' . esc_attr( $key ) . '" data-rec-status="' . esc_attr( $status ) . '"><strong>' . esc_html( $label ) . ':</strong> ' . esc_html( $name ) . esc_html( $confidence ) . '<br><span class="description">' . esc_html( $reason ) . '</span><br><span class="cto-rec-state cto-rec-state-' . esc_attr( $state['state'] ) . '">' . esc_html( $state['label'] ) . '</span> ';
+			if ( $state['can_accept'] ) { echo wp_kses_post( $this->recommendation_link( $post->ID, $key, 'accept', __( 'Übernehmen', 'content-taxonomy-overview' ) ) ) . ' '; }
+			elseif ( 'already_applied' === $state['state'] ) { echo wp_kses_post( $this->recommendation_link( $post->ID, $key, 'checked', __( 'Als geprüft markieren', 'content-taxonomy-overview' ) ) ) . ' '; }
+			else { echo wp_kses_post( $this->recommendation_link( $post->ID, $key, 'checked', __( 'Als geprüft markieren', 'content-taxonomy-overview' ) ) ) . ' '; }
+			echo wp_kses_post( $this->recommendation_link( $post->ID, $key, 'ignore', __( 'Ignorieren', 'content-taxonomy-overview' ) ) );
 			echo ' ' . wp_kses_post( $this->recommendation_link( $post->ID, $key, 'reset', __( 'Zurücksetzen', 'content-taxonomy-overview' ) ) );
 			echo '</div>';
 		}
 	}
 
+	/** Determine display/action state for a recommendation. */
+	private function get_recommendation_application_state( $post, $group, $item, $parent_index, $link_only, $workflow_status ) {
+		if ( 'ignored' === $workflow_status ) { return array( 'state' => 'ignored', 'label' => __( 'Ignoriert', 'content-taxonomy-overview' ), 'can_accept' => false ); }
+		if ( 'accepted' === $workflow_status ) { return array( 'state' => 'accepted', 'label' => __( 'Geprüft', 'content-taxonomy-overview' ), 'can_accept' => false ); }
+		if ( $link_only || 'recommendations' === $group ) { return array( 'state' => 'review', 'label' => __( 'Prüfaufgabe', 'content-taxonomy-overview' ), 'can_accept' => false ); }
+		$taxonomy = '';
+		$custom   = false;
+		if ( 'recommended_categories' === $group ) { $taxonomy = 'category'; }
+		elseif ( 'recommended_tags' === $group ) { $taxonomy = 'post_tag'; }
+		elseif ( 'recommended_custom_taxonomies' === $group ) { $data = get_post_meta( $post->ID, '_cto_ai_analysis_data', true ); $tax_item = $data['recommended_custom_taxonomies'][ $parent_index ] ?? array(); $taxonomy = sanitize_key( $tax_item['taxonomy'] ?? '' ); $custom = true; }
+		if ( '' === $taxonomy || ! taxonomy_exists( $taxonomy ) || ! is_object_in_taxonomy( $post->post_type, $taxonomy ) ) { return array( 'state' => 'not_applicable', 'label' => __( 'Nicht anwendbar', 'content-taxonomy-overview' ), 'can_accept' => false ); }
+		$name = $this->get_recommendation_term_name( $item );
+		$term = term_exists( $name, $taxonomy );
+		if ( $term ) {
+			$term_id = is_array( $term ) ? absint( $term['term_id'] ) : absint( $term );
+			$assigned = has_term( $term_id, $taxonomy, $post );
+			return $assigned ? array( 'state' => 'already_applied', 'label' => __( 'Bereits vorhanden', 'content-taxonomy-overview' ), 'can_accept' => false ) : array( 'state' => 'can_apply', 'label' => __( 'Kann übernommen werden', 'content-taxonomy-overview' ), 'can_accept' => true );
+		}
+		$settings = CTO_AI_Service::get_settings();
+		$allowed  = $custom ? ! empty( $settings['allow_create_custom_terms'] ) : ! empty( $settings['allow_create_terms'] );
+		return $allowed ? array( 'state' => 'can_create', 'label' => __( 'Kann erstellt und übernommen werden', 'content-taxonomy-overview' ), 'can_accept' => true ) : array( 'state' => 'not_allowed', 'label' => __( 'Nicht vorhanden, Erstellung nicht erlaubt', 'content-taxonomy-overview' ), 'can_accept' => false );
+	}
+
+	/** Check whether stored AI analysis is stale compared with current content/terms. */
+	private function is_ai_analysis_stale( $post_id ) {
+		$stored = (string) get_post_meta( $post_id, '_cto_ai_input_hash', true );
+		return '' !== $stored && $stored !== CTO_AI_Service::calculate_input_hash( $post_id );
+	}
 
 	/** Process a recommendation workflow action and return the new status. */
 	private function process_recommendation_action( $post_id, $key, $action ) {
@@ -804,14 +840,20 @@ class CTO_Admin {
 		$term_name = sanitize_text_field( $term_name );
 		if ( '' === $term_name ) { return new WP_Error( 'cto_empty_term', __( 'Die Empfehlung enthält keinen gültigen Begriff.', 'content-taxonomy-overview' ) ); }
 		$term = term_exists( $term_name, $taxonomy );
-		if ( ! $term ) {
+		if ( $term ) {
+			$term_id = is_array( $term ) ? absint( $term['term_id'] ) : absint( $term );
+			if ( has_term( $term_id, $taxonomy, $post_id ) ) {
+				CTO_AI_Service::log( 'taxonomy_already_applied', $post_id, $taxonomy . ':' . $term_name );
+				return 'already_applied';
+			}
+		} else {
 			$allowed = $custom ? ! empty( $settings['allow_create_custom_terms'] ) : ! empty( $settings['allow_create_terms'] );
 			if ( ! $allowed ) { return new WP_Error( 'cto_term_missing', __( 'Term does not exist and creation is disabled.', 'content-taxonomy-overview' ) ); }
 			$term = wp_insert_term( $term_name, $taxonomy );
 			if ( is_wp_error( $term ) ) { return $term; }
 			CTO_AI_Service::log( 'term_created', $post_id, $taxonomy . ':' . $term_name );
+			$term_id = is_array( $term ) ? absint( $term['term_id'] ) : absint( $term );
 		}
-		$term_id = is_array( $term ) ? absint( $term['term_id'] ) : absint( $term );
 		$result = wp_set_object_terms( $post_id, array( $term_id ), $taxonomy, true );
 		if ( is_wp_error( $result ) ) { return $result; }
 		$this->analyzer->analyze_post( $post_id );

@@ -239,48 +239,137 @@ class CTO_Analyzer {
 	 * @return array
 	 */
 	private function extract_analyzable_content( $post_id ) {
-		$post    = get_post( $post_id );
-		$raw     = $post ? (string) $post->post_content : '';
-		$clean   = $this->shortcode_content_to_text( $raw );
-		$clean   = html_entity_decode( wp_strip_all_tags( $clean ), ENT_QUOTES | ENT_HTML5, get_bloginfo( 'charset' ) );
-		$clean   = preg_replace( '~https?://\S+|www\.\S+~iu', ' ', $clean );
-		$clean   = preg_replace( '/\s+/u', ' ', $clean );
-		$clean   = trim( (string) $clean );
-		$h2      = $this->count_h2_headings( $raw );
-		$words   = $this->count_unicode_words( $clean );
-		$raw_len = function_exists( 'mb_strlen' ) ? mb_strlen( $raw ) : strlen( $raw );
+		$post        = get_post( $post_id );
+		$raw         = $post ? (string) $post->post_content : '';
+		$diagnostics = array(
+			'source'                     => 'post_content',
+			'extraction_strategy_used'   => 'shortcode_tag_cleanup',
+			'fusion_shortcodes_detected' => (bool) preg_match( '/\[\/?fusion_[a-z0-9_:-]+\b/i', $raw ),
+			'raw_length'                 => (int) ( function_exists( 'mb_strlen' ) ? mb_strlen( $raw ) : strlen( $raw ) ),
+			'raw_content_length'         => (int) ( function_exists( 'mb_strlen' ) ? mb_strlen( $raw ) : strlen( $raw ) ),
+			'clean_text_length'          => 0,
+			'cleaned_text_length'        => 0,
+			'cleaned_text_word_count'    => 0,
+			'analyzable_text_detected'   => false,
+			'word_count_method'          => 'unicode_regex',
+			'shortcode_cleanup_error'    => false,
+			'preg_last_error_code'       => 0,
+			'rendered_fallback_used'     => false,
+			'rendered_fallback_word_count'=> 0,
+			'builder_meta_fallback_used' => false,
+			'builder_meta_fields_checked'=> array(),
+			'links_detected'             => 0,
+			'internal_links_detected'    => 0,
+			'external_links_detected'    => 0,
+			'text_sample'                => '',
+		);
+
+		$clean = $this->extract_visible_text_from_builder_content( $raw, $diagnostics );
+		$words = $this->count_unicode_words( $clean );
+
+		if ( 0 === $words && '' !== trim( $raw ) ) {
+			$rendered = $this->get_rendered_content_fallback( $raw );
+			if ( '' !== $rendered ) {
+				$rendered_clean = $this->extract_visible_text_from_builder_content( $rendered, $diagnostics );
+				$rendered_words = $this->count_unicode_words( $rendered_clean );
+				$diagnostics['rendered_fallback_used']       = true;
+				$diagnostics['rendered_fallback_word_count'] = $rendered_words;
+				if ( $rendered_words > $words ) {
+					$clean = $rendered_clean;
+					$words = $rendered_words;
+					$diagnostics['extraction_strategy_used'] = 'rendered_content_fallback';
+				}
+			}
+		}
+
+		if ( 0 === $words ) {
+			$meta = $this->get_builder_meta_fallback_content( $post_id, $diagnostics );
+			if ( '' !== $meta ) {
+				$meta_clean = $this->extract_visible_text_from_builder_content( $meta, $diagnostics );
+				$meta_words = $this->count_unicode_words( $meta_clean );
+				if ( $meta_words > 0 ) {
+					$clean = $meta_clean;
+					$words = $meta_words;
+					$diagnostics['builder_meta_fallback_used'] = true;
+					$diagnostics['extraction_strategy_used']   = 'builder_meta_fallback';
+				}
+			}
+		}
+
 		$txt_len = function_exists( 'mb_strlen' ) ? mb_strlen( $clean ) : strlen( $clean );
+		$diagnostics['clean_text_length']        = (int) $txt_len;
+		$diagnostics['cleaned_text_length']      = (int) $txt_len;
+		$diagnostics['cleaned_text_word_count']  = (int) $words;
+		$diagnostics['analyzable_text_detected'] = $words > 0;
+		$diagnostics['text_sample']              = function_exists( 'mb_substr' ) ? mb_substr( $clean, 0, 250 ) : substr( $clean, 0, 250 );
 
 		return array(
 			'text'        => $clean,
 			'link_source' => $raw,
 			'word_count'  => $words,
-			'h2_count'    => $h2,
-			'diagnostics' => array(
-				'source'                     => 'post_content',
-				'fusion_shortcodes_detected' => (bool) preg_match( '/\[\/?fusion_[a-z0-9_:-]+\b/i', $raw ),
-				'raw_length'                 => (int) $raw_len,
-				'clean_text_length'          => (int) $txt_len,
-				'analyzable_text_detected'   => '' !== $clean,
-				'word_count_method'          => 'unicode_regex',
-				'links_detected'             => 0,
-				'internal_links_detected'    => 0,
-				'external_links_detected'    => 0,
-			),
+			'h2_count'    => $this->count_h2_headings( $raw ),
+			'diagnostics' => $diagnostics,
 		);
 	}
 
+	/** Extract visible text from raw/builder content. */
+	private function extract_visible_text_from_builder_content( $content, &$diagnostics = null ) {
+		$text = $this->shortcode_content_to_text( (string) $content, $diagnostics );
+		$text = html_entity_decode( wp_strip_all_tags( $text ), ENT_QUOTES | ENT_HTML5, get_bloginfo( 'charset' ) );
+		$text = preg_replace( '~https?://\S+|www\.\S+~iu', ' ', $text );
+		$text = preg_replace( '/\b\S+\.(?:jpg|jpeg|png|gif|webp|svg|css|js|pdf)\b/iu', ' ', (string) $text );
+		$text = preg_replace( '/\s+/u', ' ', (string) $text );
+		return trim( (string) $text );
+	}
+
 	/** Remove shortcode wrappers and attributes while keeping enclosed visible text. */
-	private function shortcode_content_to_text( $content ) {
+	private function shortcode_content_to_text( $content, &$diagnostics = null ) {
 		$content = (string) $content;
-		$content = preg_replace( '/\[fusion_(?:separator|gallery|imageframe|builder_next_page)\b[^\]]*\]/i', ' ', $content );
-		$content = preg_replace( '/\[\/?[a-zA-Z0-9_:-]+(?:\s+[^\]]*)?\]/', ' ', $content );
-		return (string) $content;
+		$result  = preg_replace( '/\[fusion_(?:separator|gallery|imageframe|builder_next_page)\b[^\]]*\]/i', ' ', $content );
+		$error   = preg_last_error();
+		if ( null === $result ) {
+			if ( is_array( $diagnostics ) ) { $diagnostics['shortcode_cleanup_error'] = true; $diagnostics['preg_last_error_code'] = $error; }
+			$result = $content;
+		}
+		$result2 = preg_replace( '/\[\/?[a-zA-Z0-9_:-]+(?:\s+(?:"[^"]*"|\'[^\']*\'|[^\]])*)?\]/', ' ', $result );
+		$error2  = preg_last_error();
+		if ( null === $result2 ) {
+			if ( is_array( $diagnostics ) ) { $diagnostics['shortcode_cleanup_error'] = true; $diagnostics['preg_last_error_code'] = $error2; }
+			return $result;
+		}
+		if ( is_array( $diagnostics ) ) { $diagnostics['preg_last_error_code'] = max( (int) ( $diagnostics['preg_last_error_code'] ?? 0 ), $error, $error2 ); }
+		return (string) $result2;
+	}
+
+	/** Render content as fallback when shortcode text cleanup finds no words. */
+	private function get_rendered_content_fallback( $raw ) {
+		if ( '' === trim( (string) $raw ) ) { return ''; }
+		if ( function_exists( 'do_shortcode' ) ) {
+			$rendered = do_shortcode( $raw );
+			if ( is_string( $rendered ) && trim( $rendered ) !== trim( $raw ) ) { return $rendered; }
+		}
+		if ( has_filter( 'the_content' ) ) {
+			$filtered = apply_filters( 'the_content', $raw );
+			if ( is_string( $filtered ) ) { return $filtered; }
+		}
+		return '';
+	}
+
+	/** Get selected builder meta fallback content without scanning unrelated large settings. */
+	private function get_builder_meta_fallback_content( $post_id, &$diagnostics ) {
+		$keys = array( '_fusion_builder_content', 'fusion_builder_content', '_avada_builder_content', 'avada_builder_content' );
+		$out  = '';
+		foreach ( $keys as $key ) {
+			$value = get_post_meta( $post_id, $key, true );
+			$diagnostics['builder_meta_fields_checked'][] = $key;
+			if ( is_string( $value ) && strlen( $value ) < 200000 && preg_match( '/\w{3,}/u', $value ) ) { $out .= ' ' . $value; }
+		}
+		return trim( $out );
 	}
 
 	/** Count Unicode words in cleaned visible text. */
 	private function count_unicode_words( $text ) {
-		if ( ! preg_match_all( "/[\p{L}\p{N}]+(?:[\-’'][\p{L}\p{N}]+)*/u", (string) $text, $matches ) ) {
+		if ( ! preg_match_all( "/(?=[\p{L}\p{N}'’\-]*\p{L})[\p{L}\p{N}]+(?:[\-’'][\p{L}\p{N}]+)*/u", (string) $text, $matches ) ) {
 			return 0;
 		}
 		return count( $matches[0] );
