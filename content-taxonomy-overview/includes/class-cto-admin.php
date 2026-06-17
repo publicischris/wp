@@ -527,8 +527,9 @@ class CTO_Admin {
 	private function render_score_details( $post ) {
 		$data    = get_post_meta( $post->ID, '_cto_analysis_data', true );
 		$data    = is_array( $data ) ? $data : array();
-		$scoring = isset( $data['scoring'] ) && is_array( $data['scoring'] ) ? $data['scoring'] : $this->build_legacy_score_details( $post, $data );
-		$status  = (string) get_post_meta( $post->ID, '_cto_analysis_status', true );
+		$scoring    = isset( $data['scoring'] ) && is_array( $data['scoring'] ) ? $data['scoring'] : $this->build_legacy_score_details( $post, $data );
+		$extraction = isset( $data['content']['content_extraction'] ) && is_array( $data['content']['content_extraction'] ) ? $data['content']['content_extraction'] : array();
+		$status     = (string) get_post_meta( $post->ID, '_cto_analysis_status', true );
 		?>
 		<div class="cto-score-details">
 			<h4><?php esc_html_e( 'Score-Details', 'content-taxonomy-overview' ); ?></h4>
@@ -542,6 +543,33 @@ class CTO_Admin {
 				<div><h5><?php esc_html_e( 'Taxonomie', 'content-taxonomy-overview' ); ?></h5><?php $this->render_criteria_list( $scoring['taxonomy']['criteria'] ?? array() ); ?></div>
 				<div><h5><?php esc_html_e( 'Struktur', 'content-taxonomy-overview' ); ?></h5><?php $this->render_criteria_list( $scoring['structure']['criteria'] ?? array() ); ?></div>
 			</div>
+			<?php $this->render_content_extraction_diagnostics( $extraction ); ?>
+		</div>
+		<?php
+	}
+
+
+
+	/** Render content extraction diagnostics. */
+	private function render_content_extraction_diagnostics( $extraction ) {
+		if ( empty( $extraction ) ) {
+			return;
+		}
+		$has_text = ! empty( $extraction['analyzable_text_detected'] );
+		?>
+		<div class="cto-content-diagnostics">
+			<h5><?php esc_html_e( 'Content-Extraktion', 'content-taxonomy-overview' ); ?></h5>
+			<ul>
+				<li><?php echo esc_html( sprintf( __( 'Content-Quelle: %s', 'content-taxonomy-overview' ), $extraction['source'] ?? '—' ) ); ?></li>
+				<li><?php echo esc_html( sprintf( __( 'Avada/Fusion Shortcodes erkannt: %s', 'content-taxonomy-overview' ), ! empty( $extraction['fusion_shortcodes_detected'] ) ? __( 'ja', 'content-taxonomy-overview' ) : __( 'nein', 'content-taxonomy-overview' ) ) ); ?></li>
+				<li><?php echo esc_html( sprintf( __( 'Analysierbarer Text erkannt: %s', 'content-taxonomy-overview' ), $has_text ? __( 'ja', 'content-taxonomy-overview' ) : __( 'nein', 'content-taxonomy-overview' ) ) ); ?></li>
+				<li><?php echo esc_html( sprintf( __( 'Textlänge nach Bereinigung: %d', 'content-taxonomy-overview' ), absint( $extraction['clean_text_length'] ?? 0 ) ) ); ?></li>
+				<li><?php echo esc_html( sprintf( __( 'Linkquellen erkannt: %1$d gesamt, %2$d intern, %3$d extern', 'content-taxonomy-overview' ), absint( $extraction['links_detected'] ?? 0 ), absint( $extraction['internal_links_detected'] ?? 0 ), absint( $extraction['external_links_detected'] ?? 0 ) ) ); ?></li>
+				<li><?php echo esc_html( sprintf( __( 'Wortzählung: %s', 'content-taxonomy-overview' ), $extraction['word_count_method'] ?? '—' ) ); ?></li>
+			</ul>
+			<?php if ( ! $has_text ) : ?>
+				<p class="description"><?php esc_html_e( 'Es konnte kein analysierbarer Text aus dem gespeicherten Inhalt extrahiert werden. Der Inhalt liegt möglicherweise in Page-Builder-Metafeldern oder wird dynamisch erzeugt.', 'content-taxonomy-overview' ); ?></p>
+			<?php endif; ?>
 		</div>
 		<?php
 	}

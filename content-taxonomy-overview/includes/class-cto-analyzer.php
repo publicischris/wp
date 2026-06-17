@@ -40,6 +40,7 @@ class CTO_Analyzer {
 			'post_status'          => $post->post_status,
 			'taxonomies'           => $taxonomy_data,
 			'content'              => $content_data,
+			'content_extraction'   => isset( $content_data['content_extraction'] ) ? $content_data['content_extraction'] : array(),
 			'scoring'              => array(
 				'taxonomy'  => $this->build_taxonomy_criteria( $taxonomy_data ),
 				'structure' => $this->build_structure_criteria( $content_data ),
@@ -210,22 +211,92 @@ class CTO_Analyzer {
 	 * @return array
 	 */
 	private function get_content_data( $post ) {
-		$content        = (string) $post->post_content;
-		$word_count     = str_word_count( wp_strip_all_tags( strip_shortcodes( $content ) ) );
-		$h2_count       = preg_match_all( '/<h2\b[^>]*>/i', $content );
-		$links          = $this->count_links( $content );
+		$extracted      = $this->extract_analyzable_content( $post->ID );
+		$links          = $this->count_links( $extracted['link_source'] );
 		$meta           = $this->get_seo_meta_description( $post->ID );
 		$featured_image = has_post_thumbnail( $post->ID );
 
+		$extracted['diagnostics']['links_detected']          = (int) $links['total'];
+		$extracted['diagnostics']['internal_links_detected'] = (int) $links['internal'];
+		$extracted['diagnostics']['external_links_detected'] = (int) $links['external'];
+
 		return array(
-			'word_count'               => (int) $word_count,
-			'h2_count'                 => (int) $h2_count,
+			'word_count'               => (int) $extracted['word_count'],
+			'h2_count'                 => (int) $extracted['h2_count'],
 			'internal_links'            => (int) $links['internal'],
 			'external_links'            => (int) $links['external'],
 			'featured_image'            => (bool) $featured_image,
 			'seo_plugin_detected'       => (bool) $meta['plugin_detected'],
 			'meta_description_present'  => (bool) $meta['description_present'],
+			'content_extraction'        => $extracted['diagnostics'],
 		);
+	}
+
+	/**
+	 * Extract analyzable content from post_content while preserving visible builder text.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return array
+	 */
+	private function extract_analyzable_content( $post_id ) {
+		$post    = get_post( $post_id );
+		$raw     = $post ? (string) $post->post_content : '';
+		$clean   = $this->shortcode_content_to_text( $raw );
+		$clean   = html_entity_decode( wp_strip_all_tags( $clean ), ENT_QUOTES | ENT_HTML5, get_bloginfo( 'charset' ) );
+		$clean   = preg_replace( '~https?://\S+|www\.\S+~iu', ' ', $clean );
+		$clean   = preg_replace( '/\s+/u', ' ', $clean );
+		$clean   = trim( (string) $clean );
+		$h2      = $this->count_h2_headings( $raw );
+		$words   = $this->count_unicode_words( $clean );
+		$raw_len = function_exists( 'mb_strlen' ) ? mb_strlen( $raw ) : strlen( $raw );
+		$txt_len = function_exists( 'mb_strlen' ) ? mb_strlen( $clean ) : strlen( $clean );
+
+		return array(
+			'text'        => $clean,
+			'link_source' => $raw,
+			'word_count'  => $words,
+			'h2_count'    => $h2,
+			'diagnostics' => array(
+				'source'                     => 'post_content',
+				'fusion_shortcodes_detected' => (bool) preg_match( '/\[\/?fusion_[a-z0-9_:-]+\b/i', $raw ),
+				'raw_length'                 => (int) $raw_len,
+				'clean_text_length'          => (int) $txt_len,
+				'analyzable_text_detected'   => '' !== $clean,
+				'word_count_method'          => 'unicode_regex',
+				'links_detected'             => 0,
+				'internal_links_detected'    => 0,
+				'external_links_detected'    => 0,
+			),
+		);
+	}
+
+	/** Remove shortcode wrappers and attributes while keeping enclosed visible text. */
+	private function shortcode_content_to_text( $content ) {
+		$content = (string) $content;
+		$content = preg_replace( '/\[fusion_(?:separator|gallery|imageframe|builder_next_page)\b[^\]]*\]/i', ' ', $content );
+		$content = preg_replace( '/\[\/?[a-zA-Z0-9_:-]+(?:\s+[^\]]*)?\]/', ' ', $content );
+		return (string) $content;
+	}
+
+	/** Count Unicode words in cleaned visible text. */
+	private function count_unicode_words( $text ) {
+		if ( ! preg_match_all( "/[\p{L}\p{N}]+(?:[\-’'][\p{L}\p{N}]+)*/u", (string) $text, $matches ) ) {
+			return 0;
+		}
+		return count( $matches[0] );
+	}
+
+	/** Count real H2 tags and Fusion title shortcodes configured as H2. */
+	private function count_h2_headings( $content ) {
+		$count = preg_match_all( '/<h2\b[^>]*>/i', (string) $content );
+		if ( preg_match_all( '/\[fusion_title\b([^\]]*)\](.*?)\[\/fusion_title\]/is', (string) $content, $matches ) ) {
+			foreach ( $matches[1] as $attributes ) {
+				if ( preg_match( '/\b(?:size|title_size|heading_size)=(["\']?)(h?2)\1/i', $attributes ) ) {
+					$count++;
+				}
+			}
+		}
+		return (int) $count;
 	}
 
 	/**
@@ -252,27 +323,44 @@ class CTO_Analyzer {
 	 * @return array
 	 */
 	private function count_links( $content ) {
-		$home_host = wp_parse_url( home_url(), PHP_URL_HOST );
+		$home_host = $this->normalize_host( wp_parse_url( home_url(), PHP_URL_HOST ) );
 		$internal  = 0;
 		$external  = 0;
+		$urls      = array();
 
-		if ( preg_match_all( '/<a\s[^>]*href=["\']([^"\']+)["\'][^>]*>/i', $content, $matches ) ) {
-			foreach ( $matches[1] as $href ) {
-				$href = trim( html_entity_decode( $href ) );
-				if ( '' === $href || 0 === strpos( $href, '#' ) || 0 === strpos( $href, 'mailto:' ) || 0 === strpos( $href, 'tel:' ) ) {
-					continue;
-				}
+		if ( preg_match_all( '/<a\s[^>]*href=["\']([^"\']+)["\'][^>]*>/i', (string) $content, $matches ) ) {
+			$urls = array_merge( $urls, $matches[1] );
+		}
 
-				$host = wp_parse_url( $href, PHP_URL_HOST );
-				if ( empty( $host ) || $home_host === $host ) {
-					$internal++;
-				} else {
-					$external++;
+		if ( preg_match_all( '/\[[^\]]+\]/', (string) $content, $shortcode_matches ) ) {
+			foreach ( $shortcode_matches[0] as $shortcode_tag ) {
+				if ( preg_match_all( '/\b(?:href|link|url)=(["\'])(.*?)\1/i', $shortcode_tag, $matches ) ) {
+					$urls = array_merge( $urls, $matches[2] );
 				}
 			}
 		}
 
-		return array( 'internal' => $internal, 'external' => $external );
+		foreach ( $urls as $href ) {
+			$href = trim( html_entity_decode( (string) $href, ENT_QUOTES | ENT_HTML5, get_bloginfo( 'charset' ) ) );
+			if ( '' === $href || 0 === strpos( $href, '#' ) || 0 === stripos( $href, 'mailto:' ) || 0 === stripos( $href, 'tel:' ) ) {
+				continue;
+			}
+
+			$host = $this->normalize_host( wp_parse_url( $href, PHP_URL_HOST ) );
+			if ( empty( $host ) || $home_host === $host ) {
+				$internal++;
+			} else {
+				$external++;
+			}
+		}
+
+		return array( 'internal' => $internal, 'external' => $external, 'total' => $internal + $external );
+	}
+
+	/** Normalize host names for internal/external link comparison. */
+	private function normalize_host( $host ) {
+		$host = strtolower( (string) $host );
+		return 0 === strpos( $host, 'www.' ) ? substr( $host, 4 ) : $host;
 	}
 
 	/**
