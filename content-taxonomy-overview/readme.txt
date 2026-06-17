@@ -87,3 +87,5 @@ The plugin does not automatically modify content, insert links, assign terms, or
 - Workflow-Aktionen laufen per AJAX ohne Seitenreload. Akzeptierte, geprüfte oder ignorierte Empfehlungen werden in der Übersicht ausgeblendet; eine erneute KI-Analyse erzeugt neue Vorschläge.
 - Unter Einstellungen können die zu analysierenden Post Types explizit aktiviert werden. Die Übersicht, Scans und KI-Prompts verwenden danach nur diese Auswahl.
 - Nach übernommenen Taxonomie-Empfehlungen wird die regelbasierte Analyse des Inhalts erneut ausgeführt; sichtbare Scores werden per AJAX aktualisiert.
+- Die Admin-Übersicht enthält eine einklappbare Erklärung der Score-Regeln und pro Inhalt eine Score-Detailansicht mit erfüllten, nicht erfüllten und nicht relevanten Kriterien.
+- `_cto_analysis_data` speichert nach erneuter Analyse zusätzlich `scoring.taxonomy.criteria`, `scoring.structure.criteria` und `scoring.total` mit Status, Punkten und Maximalpunkten pro Kriterium.

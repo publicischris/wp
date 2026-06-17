@@ -40,6 +40,16 @@ class CTO_Analyzer {
 			'post_status'          => $post->post_status,
 			'taxonomies'           => $taxonomy_data,
 			'content'              => $content_data,
+			'scoring'              => array(
+				'taxonomy'  => $this->build_taxonomy_criteria( $taxonomy_data ),
+				'structure' => $this->build_structure_criteria( $content_data ),
+				'total'     => array(
+					'calculation' => 'average_taxonomy_structure',
+					'score'       => $total_score,
+					'max_points'  => 100,
+					'status'      => $status,
+				),
+			),
 			'phase_2_ai_available' => CTO_AI_Service::is_configured(),
 		);
 
@@ -145,6 +155,52 @@ class CTO_Analyzer {
 		$score += ( ! empty( $data['custom_taxonomies_exist'] ) && ! empty( $data['has_custom_taxonomy_term'] ) ) ? 10 : 0;
 
 		return min( 100, $score );
+	}
+
+
+
+	/** Build transparent taxonomy criteria details without changing scoring logic.
+	 *
+	 * @param array $data Taxonomy data.
+	 * @return array
+	 */
+	private function build_taxonomy_criteria( $data ) {
+		$category_relevant = ! empty( $data['category_taxonomy_exists'] );
+		$tag_relevant      = ! empty( $data['tag_taxonomy_exists'] );
+		$custom_relevant   = ! empty( $data['custom_taxonomies_exist'] );
+
+		return array(
+			'score'      => $this->calculate_taxonomy_score( $data ),
+			'max_points' => 100,
+			'criteria'   => array(
+				'category_present'       => array( 'label' => __( 'Kategorie vorhanden', 'content-taxonomy-overview' ), 'met' => ! empty( $data['has_category'] ), 'relevant' => $category_relevant, 'points' => ( ! $category_relevant || ! empty( $data['has_category'] ) ) ? 30 : 0, 'max_points' => 30 ),
+				'tag_present'            => array( 'label' => __( 'Tag vorhanden', 'content-taxonomy-overview' ), 'met' => ! empty( $data['has_tag'] ), 'relevant' => $tag_relevant, 'points' => ( ! $tag_relevant || ! empty( $data['has_tag'] ) ) ? 20 : 0, 'max_points' => 20 ),
+				'multiple_assignments'    => array( 'label' => __( 'Mehr als eine Taxonomie-Zuordnung', 'content-taxonomy-overview' ), 'met' => (int) $data['total_terms'] > 1, 'relevant' => true, 'points' => ( (int) $data['total_terms'] > 1 ) ? 20 : 0, 'max_points' => 20 ),
+				'no_default_category'     => array( 'label' => __( 'Keine Uncategorized/Allgemein-Kategorie', 'content-taxonomy-overview' ), 'met' => empty( $data['has_default_category'] ), 'relevant' => $category_relevant, 'points' => ( ! $category_relevant || empty( $data['has_default_category'] ) ) ? 20 : 0, 'max_points' => 20 ),
+				'custom_taxonomy_present' => array( 'label' => __( 'Custom Taxonomy vorhanden', 'content-taxonomy-overview' ), 'met' => ! empty( $data['has_custom_taxonomy_term'] ), 'relevant' => $custom_relevant, 'points' => ( $custom_relevant && ! empty( $data['has_custom_taxonomy_term'] ) ) ? 10 : 0, 'max_points' => 10 ),
+			),
+		);
+	}
+
+	/** Build transparent structure criteria details without changing scoring logic.
+	 *
+	 * @param array $data Content structure data.
+	 * @return array
+	 */
+	private function build_structure_criteria( $data ) {
+		$meta_relevant = ! empty( $data['seo_plugin_detected'] );
+
+		return array(
+			'score'      => $this->calculate_structure_score( $data ),
+			'max_points' => 100,
+			'criteria'   => array(
+				'word_count_over_500'     => array( 'label' => __( 'Mehr als 500 Wörter', 'content-taxonomy-overview' ), 'met' => (int) $data['word_count'] > 500, 'relevant' => true, 'points' => ( (int) $data['word_count'] > 500 ) ? 25 : 0, 'max_points' => 25 ),
+				'h2_present'              => array( 'label' => __( 'H2 vorhanden', 'content-taxonomy-overview' ), 'met' => (int) $data['h2_count'] > 0, 'relevant' => true, 'points' => ( (int) $data['h2_count'] > 0 ) ? 20 : 0, 'max_points' => 20 ),
+				'featured_image_present'  => array( 'label' => __( 'Featured Image vorhanden', 'content-taxonomy-overview' ), 'met' => ! empty( $data['featured_image'] ), 'relevant' => true, 'points' => ! empty( $data['featured_image'] ) ? 20 : 0, 'max_points' => 20 ),
+				'internal_link_present'   => array( 'label' => __( 'Interner Link vorhanden', 'content-taxonomy-overview' ), 'met' => (int) $data['internal_links'] > 0, 'relevant' => true, 'points' => ( (int) $data['internal_links'] > 0 ) ? 20 : 0, 'max_points' => 20 ),
+				'meta_description_present'=> array( 'label' => __( 'Meta Description vorhanden', 'content-taxonomy-overview' ), 'met' => ! empty( $data['meta_description_present'] ), 'relevant' => $meta_relevant, 'points' => ( $meta_relevant && ! empty( $data['meta_description_present'] ) ) ? 15 : 0, 'max_points' => 15 ),
+			),
+		);
 	}
 
 	/**

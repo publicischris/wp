@@ -73,6 +73,7 @@ class CTO_Admin {
 			<h1><?php esc_html_e( 'Content Taxonomy Overview', 'content-taxonomy-overview' ); ?></h1>
 			<?php $this->render_notices(); ?>
 			<?php $this->render_summary(); ?>
+			<?php $this->render_score_explanation(); ?>
 			<?php $this->render_column_options( $columns ); ?>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="cto-actions">
 				<?php wp_nonce_field( 'cto_analyze_all' ); ?>
@@ -327,6 +328,22 @@ class CTO_Admin {
 
 
 
+
+
+	/** Render score calculation explanation. */
+	private function render_score_explanation() {
+		?>
+		<details class="cto-score-explanation">
+			<summary><strong><?php esc_html_e( 'Wie wird der Score berechnet?', 'content-taxonomy-overview' ); ?></strong></summary>
+			<div class="cto-score-explanation-grid">
+				<div><h3><?php esc_html_e( 'Taxonomie-Score', 'content-taxonomy-overview' ); ?></h3><ul><li><?php esc_html_e( 'Kategorie vorhanden: +30 Punkte', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( 'Mindestens ein Tag vorhanden: +20 Punkte', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( 'Mehr als eine Taxonomie-Zuordnung vorhanden: +20 Punkte', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( 'Keine Kategorie „Uncategorized“ bzw. „Allgemein“: +20 Punkte', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( 'Mindestens eine Custom Taxonomy vorhanden, falls relevant: +10 Punkte', 'content-taxonomy-overview' ); ?></li></ul></div>
+				<div><h3><?php esc_html_e( 'Struktur-Score', 'content-taxonomy-overview' ); ?></h3><ul><li><?php esc_html_e( 'Wortanzahl über 500 Wörter: +25 Punkte', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( 'Mindestens eine H2-Überschrift vorhanden: +20 Punkte', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( 'Featured Image vorhanden: +20 Punkte', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( 'Mindestens ein interner Link vorhanden: +20 Punkte', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( 'Meta Description vorhanden, falls Yoast SEO oder Rank Math erkannt wird: +15 Punkte', 'content-taxonomy-overview' ); ?></li></ul></div>
+				<div><h3><?php esc_html_e( 'Gesamtbewertung', 'content-taxonomy-overview' ); ?></h3><p><?php esc_html_e( 'Der Gesamt-Score ist der Durchschnitt aus Taxonomie-Score und Struktur-Score.', 'content-taxonomy-overview' ); ?></p><ul><li><?php esc_html_e( '80–100: OK', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( '50–79: Prüfen', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( '0–49: Unvollständig', 'content-taxonomy-overview' ); ?></li></ul></div>
+			</div>
+		</details>
+		<?php
+	}
+
 	/** Render dashboard summary. */
 	private function render_summary() {
 		$total = 0;
@@ -501,6 +518,78 @@ class CTO_Admin {
 
 
 
+
+
+	/** Render score details for one content item.
+	 *
+	 * @param WP_Post $post Post object.
+	 */
+	private function render_score_details( $post ) {
+		$data    = get_post_meta( $post->ID, '_cto_analysis_data', true );
+		$data    = is_array( $data ) ? $data : array();
+		$scoring = isset( $data['scoring'] ) && is_array( $data['scoring'] ) ? $data['scoring'] : $this->build_legacy_score_details( $post, $data );
+		$status  = (string) get_post_meta( $post->ID, '_cto_analysis_status', true );
+		?>
+		<div class="cto-score-details">
+			<h4><?php esc_html_e( 'Score-Details', 'content-taxonomy-overview' ); ?></h4>
+			<div class="cto-score-summary">
+				<span><?php echo esc_html( sprintf( __( 'Taxonomie-Score: %s / 100', 'content-taxonomy-overview' ), get_post_meta( $post->ID, '_cto_taxonomy_score', true ) ) ); ?></span>
+				<span><?php echo esc_html( sprintf( __( 'Struktur-Score: %s / 100', 'content-taxonomy-overview' ), get_post_meta( $post->ID, '_cto_structure_score', true ) ) ); ?></span>
+				<span><?php echo esc_html( sprintf( __( 'Gesamt-Score: %s / 100', 'content-taxonomy-overview' ), get_post_meta( $post->ID, '_cto_total_score', true ) ) ); ?></span>
+				<span><?php echo esc_html( sprintf( __( 'Status: %s', 'content-taxonomy-overview' ), '' !== $status ? $status : '—' ) ); ?></span>
+			</div>
+			<div class="cto-score-criteria">
+				<div><h5><?php esc_html_e( 'Taxonomie', 'content-taxonomy-overview' ); ?></h5><?php $this->render_criteria_list( $scoring['taxonomy']['criteria'] ?? array() ); ?></div>
+				<div><h5><?php esc_html_e( 'Struktur', 'content-taxonomy-overview' ); ?></h5><?php $this->render_criteria_list( $scoring['structure']['criteria'] ?? array() ); ?></div>
+			</div>
+		</div>
+		<?php
+	}
+
+	/** Build fallback details for posts analyzed before criteria storage existed. */
+	private function build_legacy_score_details( $post, $data ) {
+		$tax     = isset( $data['taxonomies'] ) && is_array( $data['taxonomies'] ) ? $data['taxonomies'] : array();
+		$content = isset( $data['content'] ) && is_array( $data['content'] ) ? $data['content'] : array();
+		return array(
+			'taxonomy'  => array( 'criteria' => array(
+				array( 'label' => __( 'Kategorie vorhanden', 'content-taxonomy-overview' ), 'met' => ! empty( $tax['has_category'] ), 'relevant' => ! empty( $tax['category_taxonomy_exists'] ), 'points' => ( ! empty( $tax['has_category'] ) || empty( $tax['category_taxonomy_exists'] ) ) ? 30 : 0, 'max_points' => 30 ),
+				array( 'label' => __( 'Tag vorhanden', 'content-taxonomy-overview' ), 'met' => ! empty( $tax['has_tag'] ), 'relevant' => ! empty( $tax['tag_taxonomy_exists'] ), 'points' => ( ! empty( $tax['has_tag'] ) || empty( $tax['tag_taxonomy_exists'] ) ) ? 20 : 0, 'max_points' => 20 ),
+				array( 'label' => __( 'Mehr als eine Taxonomie-Zuordnung', 'content-taxonomy-overview' ), 'met' => (int) ( $tax['total_terms'] ?? 0 ) > 1, 'relevant' => true, 'points' => ( (int) ( $tax['total_terms'] ?? 0 ) > 1 ) ? 20 : 0, 'max_points' => 20 ),
+				array( 'label' => __( 'Keine Uncategorized/Allgemein-Kategorie', 'content-taxonomy-overview' ), 'met' => empty( $tax['has_default_category'] ), 'relevant' => ! empty( $tax['category_taxonomy_exists'] ), 'points' => ( empty( $tax['category_taxonomy_exists'] ) || empty( $tax['has_default_category'] ) ) ? 20 : 0, 'max_points' => 20 ),
+				array( 'label' => __( 'Custom Taxonomy vorhanden', 'content-taxonomy-overview' ), 'met' => ! empty( $tax['has_custom_taxonomy_term'] ), 'relevant' => ! empty( $tax['custom_taxonomies_exist'] ), 'points' => ( ! empty( $tax['custom_taxonomies_exist'] ) && ! empty( $tax['has_custom_taxonomy_term'] ) ) ? 10 : 0, 'max_points' => 10 ),
+			) ),
+			'structure' => array( 'criteria' => array(
+				array( 'label' => __( 'Mehr als 500 Wörter', 'content-taxonomy-overview' ), 'met' => (int) ( $content['word_count'] ?? 0 ) > 500, 'relevant' => true, 'points' => ( (int) ( $content['word_count'] ?? 0 ) > 500 ) ? 25 : 0, 'max_points' => 25 ),
+				array( 'label' => __( 'H2 vorhanden', 'content-taxonomy-overview' ), 'met' => (int) ( $content['h2_count'] ?? 0 ) > 0, 'relevant' => true, 'points' => ( (int) ( $content['h2_count'] ?? 0 ) > 0 ) ? 20 : 0, 'max_points' => 20 ),
+				array( 'label' => __( 'Featured Image vorhanden', 'content-taxonomy-overview' ), 'met' => ! empty( $content['featured_image'] ), 'relevant' => true, 'points' => ! empty( $content['featured_image'] ) ? 20 : 0, 'max_points' => 20 ),
+				array( 'label' => __( 'Interner Link vorhanden', 'content-taxonomy-overview' ), 'met' => (int) ( $content['internal_links'] ?? 0 ) > 0, 'relevant' => true, 'points' => ( (int) ( $content['internal_links'] ?? 0 ) > 0 ) ? 20 : 0, 'max_points' => 20 ),
+				array( 'label' => __( 'Meta Description vorhanden', 'content-taxonomy-overview' ), 'met' => ! empty( $content['meta_description_present'] ), 'relevant' => ! empty( $content['seo_plugin_detected'] ), 'points' => ( ! empty( $content['seo_plugin_detected'] ) && ! empty( $content['meta_description_present'] ) ) ? 15 : 0, 'max_points' => 15 ),
+			) ),
+		);
+	}
+
+	/** Render criteria list. */
+	private function render_criteria_list( $criteria ) {
+		echo '<ul class="cto-criteria-list">';
+		foreach ( (array) $criteria as $criterion ) {
+			$relevant = array_key_exists( 'relevant', (array) $criterion ) ? (bool) $criterion['relevant'] : true;
+			$met      = ! empty( $criterion['met'] );
+			$state    = $relevant ? ( $met ? 'met' : 'unmet' ) : 'na';
+			$label    = isset( $criterion['label'] ) ? $criterion['label'] : '';
+			$points   = isset( $criterion['points'] ) ? (int) $criterion['points'] : 0;
+			$max      = isset( $criterion['max_points'] ) ? (int) $criterion['max_points'] : 0;
+			echo '<li><span class="cto-criterion-label">' . esc_html( $label ) . '</span> ' . wp_kses_post( $this->criterion_badge( $state ) ) . ' <span class="description">' . esc_html( sprintf( __( '%1$d / %2$d Punkte', 'content-taxonomy-overview' ), $points, $max ) ) . '</span></li>';
+		}
+		echo '</ul>';
+	}
+
+	/** Get criterion badge markup. */
+	private function criterion_badge( $state ) {
+		$labels = array( 'met' => __( 'erfüllt', 'content-taxonomy-overview' ), 'unmet' => __( 'nicht erfüllt', 'content-taxonomy-overview' ), 'na' => __( 'nicht relevant', 'content-taxonomy-overview' ) );
+		$state  = isset( $labels[ $state ] ) ? $state : 'na';
+		return '<span class="cto-criterion cto-criterion-' . esc_attr( $state ) . '">' . esc_html( $labels[ $state ] ) . '</span>';
+	}
+
 	/** Filter stored AI data before display so old invalid recommendations do not appear.
 	 *
 	 * @param WP_Post $post Post object.
@@ -555,19 +644,18 @@ class CTO_Admin {
 	 */
 	private function render_ai_result_row( $post, $visible_columns ) {
 		$ai_data = get_post_meta( $post->ID, '_cto_ai_analysis_data', true );
-		if ( ! is_array( $ai_data ) || empty( $ai_data ) ) {
-			return;
-		}
-		$ai_data = $this->filter_ai_data_for_post_type( $post, $ai_data );
+		$ai_data = is_array( $ai_data ) ? $this->filter_ai_data_for_post_type( $post, $ai_data ) : array();
 
 		?>
 		<tr class="cto-ai-result-row">
 			<td colspan="<?php echo esc_attr( count( $visible_columns ) ); ?>">
-				<details class="cto-ai-details"><summary><strong><?php esc_html_e( 'KI-Empfehlungen anzeigen', 'content-taxonomy-overview' ); ?></strong>
+				<details class="cto-ai-details"><summary><strong><?php esc_html_e( 'Details anzeigen', 'content-taxonomy-overview' ); ?></strong>
 				<?php if ( ! empty( $ai_data['analyzed_at'] ) ) : ?>
 					<span class="description">— <?php echo esc_html( mysql2date( 'd.m.Y H:i', $ai_data['analyzed_at'] ) ); ?></span>
 				<?php endif; ?>
 				</summary>
+				<?php $this->render_score_details( $post ); ?>
+				<?php if ( ! empty( $ai_data ) ) : ?>
 				<div class="cto-ai-grid">
 					<?php $this->render_ai_field( __( 'Hauptthema', 'content-taxonomy-overview' ), isset( $ai_data['main_topic'] ) ? $ai_data['main_topic'] : '' ); ?>
 					<?php $this->render_ai_field( __( 'Kategorien', 'content-taxonomy-overview' ), isset( $ai_data['recommended_categories'] ) ? $ai_data['recommended_categories'] : array() ); ?>
@@ -580,7 +668,8 @@ class CTO_Admin {
 					<?php $this->render_ai_field( __( 'Begründung', 'content-taxonomy-overview' ), isset( $ai_data['summary'] ) ? $ai_data['summary'] : '' ); ?>
 				</div>
 				<?php $this->render_recommendation_workflow( $post, $ai_data ); ?>
-				<p class="description"><?php esc_html_e( 'Hinweis: Die KI-Analyse ist nur eine Empfehlung. Es wurden keine Inhalte, Kategorien, Tags oder Taxonomien automatisch geändert.', 'content-taxonomy-overview' ); ?></p></details>
+				<p class="description"><?php esc_html_e( 'Hinweis: Die KI-Analyse ist nur eine Empfehlung. Es wurden keine Inhalte, Kategorien, Tags oder Taxonomien automatisch geändert.', 'content-taxonomy-overview' ); ?></p>
+				<?php endif; ?></details>
 			</td>
 		</tr>
 		<?php
