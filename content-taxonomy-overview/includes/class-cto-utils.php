@@ -57,11 +57,20 @@ class CTO_Utils {
 			return array( 'post', 'page' );
 		}
 
-		$post_types = get_post_types( array( 'show_ui' => true ), 'names' );
-		$post_types = is_array( $post_types ) ? $post_types : array();
-		unset( $post_types['attachment'] );
+		$available_post_types = get_post_types( array( 'show_ui' => true ), 'names' );
+		$available_post_types = is_array( $available_post_types ) ? $available_post_types : array();
+		unset( $available_post_types['attachment'] );
 
-		$post_types = array_values( array_unique( array_merge( array( 'post', 'page' ), array_values( $post_types ) ) ) );
+		$settings = get_option( 'cto_ai_settings', array() );
+		$saved    = isset( $settings['enabled_post_types'] ) && is_array( $settings['enabled_post_types'] ) ? array_map( 'sanitize_key', $settings['enabled_post_types'] ) : array();
+		if ( empty( $saved ) ) {
+			$saved = array( 'post', 'page' );
+		}
+
+		$post_types = array_values( array_intersect( $saved, array_values( $available_post_types ) ) );
+		if ( empty( $post_types ) ) {
+			$post_types = array_values( array_intersect( array( 'post', 'page' ), array_values( $available_post_types ) ) );
+		}
 
 		return apply_filters( 'cto_supported_post_types', $post_types );
 	}

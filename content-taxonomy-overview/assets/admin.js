@@ -26,6 +26,25 @@
 		}
 	}
 
+
+	function updateScoreCells(postId, scores) {
+		if (!postId || !scores) { return; }
+		var row = document.querySelector('.cto-content-row[data-post-id="' + postId + '"]');
+		if (!row) { return; }
+		[['tax_score', scores.tax_score], ['struct_score', scores.struct_score], ['total_score', scores.total_score]].forEach(function(item){
+			var cell = row.querySelector('[data-cto-column="' + item[0] + '"]');
+			if (cell && typeof item[1] !== 'undefined') {
+				cell.innerHTML = item[0] === 'total_score' ? '<strong>' + String(item[1]) + '</strong>' : String(item[1]);
+			}
+		});
+		var noticeCell = row.querySelector('[data-cto-column="notice"]');
+		if (noticeCell && scores.notice) {
+			noticeCell.innerHTML = '<span class="cto-status cto-status-' + String(scores.notice_class || 'unknown').replace(/[^a-z0-9_-]/gi, '') + '">' + String(scores.notice).replace(/[&<>"]/g, function (char) {
+				return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[char]);
+			}) + '</span>';
+		}
+	}
+
 	function updateRecommendationCard(link, payload) {
 		var action = link.dataset.recAction || '';
 		var card = link.closest('.cto-workflow-item');
@@ -77,6 +96,7 @@
 				throw new Error(payload && payload.data && payload.data.message ? payload.data.message : ((window.ctoAdmin && ctoAdmin.error) || 'Fehler'));
 			}
 			showNotice(payload.data && payload.data.message ? payload.data.message : ((window.ctoAdmin && ctoAdmin.success) || 'Erfolgreich'), 'success');
+			updateScoreCells(link.dataset.postId || '0', payload.data && payload.data.scores);
 			if (type === 'recommendation') {
 				updateRecommendationCard(link, payload);
 			} else {

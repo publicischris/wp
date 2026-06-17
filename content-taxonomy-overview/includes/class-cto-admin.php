@@ -191,7 +191,7 @@ class CTO_Admin {
 		check_ajax_referer( 'cto_analyze_single_' . $post_id, 'nonce' );
 		$result = $this->analyzer->analyze_post( $post_id );
 		if ( is_wp_error( $result ) ) { wp_send_json_error( array( 'message' => $result->get_error_message() ), 400 ); }
-		wp_send_json_success( array( 'message' => __( 'Der Inhalt wurde neu analysiert.', 'content-taxonomy-overview' ) ) );
+		wp_send_json_success( array( 'message' => __( 'Der Inhalt wurde neu analysiert.', 'content-taxonomy-overview' ), 'scores' => $this->get_score_payload( $post_id ) ) );
 	}
 
 	/** AJAX: single AI analysis. */
@@ -202,7 +202,7 @@ class CTO_Admin {
 		$service = new CTO_AI_Service();
 		$result  = $service->analyze_post_with_ai( $post_id );
 		if ( is_wp_error( $result ) ) { wp_send_json_error( array( 'message' => $result->get_error_message() ), 400 ); }
-		wp_send_json_success( array( 'message' => __( 'KI-Analyse wurde erstellt.', 'content-taxonomy-overview' ) ) );
+		wp_send_json_success( array( 'message' => __( 'KI-Analyse wurde erstellt.', 'content-taxonomy-overview' ), 'scores' => $this->get_score_payload( $post_id ) ) );
 	}
 
 	/** AJAX: recommendation workflow action. */
@@ -214,7 +214,7 @@ class CTO_Admin {
 		check_ajax_referer( 'cto_ai_recommendation_' . $post_id . '_' . $key, 'nonce' );
 		$result = $this->process_recommendation_action( $post_id, $key, $action );
 		if ( is_wp_error( $result ) ) { wp_send_json_error( array( 'message' => $result->get_error_message() ), 400 ); }
-		wp_send_json_success( array( 'message' => __( 'Empfehlungsstatus aktualisiert.', 'content-taxonomy-overview' ), 'status' => $result ) );
+		wp_send_json_success( array( 'message' => __( 'Empfehlungsstatus aktualisiert.', 'content-taxonomy-overview' ), 'status' => $result, 'scores' => $this->get_score_payload( $post_id ) ) );
 	}
 
 	/** Render notices. */
@@ -488,15 +488,64 @@ class CTO_Admin {
 			'action'       => '<a class="button button-small cto-ajax-action" href="' . esc_url( $action ) . '" data-cto-ajax="analyze" data-post-id="' . esc_attr( $post->ID ) . '" data-nonce="' . esc_attr( wp_create_nonce( 'cto_analyze_single_' . $post->ID ) ) . '">' . esc_html__( 'Neu analysieren', 'content-taxonomy-overview' ) . '</a>' . ( CTO_AI_Service::is_configured() ? ' <a class="button button-small cto-ajax-action" href="' . esc_url( $ai_action ) . '" data-cto-ajax="ai_analyze" data-post-id="' . esc_attr( $post->ID ) . '" data-nonce="' . esc_attr( wp_create_nonce( 'cto_ai_analyze_single_' . $post->ID ) ) . '">' . esc_html__( 'Mit KI analysieren', 'content-taxonomy-overview' ) . '</a>' : '' ),
 		);
 		?>
-		<tr>
+		<tr class="cto-content-row" data-post-id="<?php echo esc_attr( $post->ID ); ?>">
 			<?php foreach ( $row as $key => $value ) : ?>
 				<?php if ( in_array( $key, $visible_columns, true ) ) : ?>
-					<td><?php echo wp_kses_post( $value ); ?></td>
+					<td data-cto-column="<?php echo esc_attr( $key ); ?>"><?php echo wp_kses_post( $value ); ?></td>
 				<?php endif; ?>
 			<?php endforeach; ?>
 		</tr>
 		<?php $this->render_ai_result_row( $post, $visible_columns ); ?>
 		<?php
+	}
+
+
+
+	/** Filter stored AI data before display so old invalid recommendations do not appear.
+	 *
+	 * @param WP_Post $post Post object.
+	 * @param array   $ai_data Stored AI data.
+	 * @return array
+	 */
+	private function filter_ai_data_for_post_type( $post, $ai_data ) {
+		$taxonomies = get_object_taxonomies( $post->post_type );
+		$taxonomies = is_array( $taxonomies ) ? $taxonomies : array();
+
+		if ( ! in_array( 'category', $taxonomies, true ) ) {
+			$ai_data['recommended_categories'] = array();
+		}
+
+		if ( ! in_array( 'post_tag', $taxonomies, true ) ) {
+			$ai_data['recommended_tags'] = array();
+		}
+
+		$ai_data['recommended_custom_taxonomies'] = array_values(
+			array_filter(
+				(array) ( $ai_data['recommended_custom_taxonomies'] ?? array() ),
+				static function ( $item ) use ( $post, $taxonomies ) {
+					$taxonomy = isset( $item['taxonomy'] ) ? sanitize_key( $item['taxonomy'] ) : '';
+					return '' !== $taxonomy && in_array( $taxonomy, $taxonomies, true ) && taxonomy_exists( $taxonomy ) && is_object_in_taxonomy( $post->post_type, $taxonomy );
+				}
+			)
+		);
+
+		return $ai_data;
+	}
+
+	/** Get current score values for AJAX UI updates.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return array
+	 */
+	private function get_score_payload( $post_id ) {
+		$status = (string) get_post_meta( $post_id, '_cto_analysis_status', true );
+		return array(
+			'tax_score'    => (string) get_post_meta( $post_id, '_cto_taxonomy_score', true ),
+			'struct_score' => (string) get_post_meta( $post_id, '_cto_structure_score', true ),
+			'total_score'  => (string) get_post_meta( $post_id, '_cto_total_score', true ),
+			'notice'       => $status,
+			'notice_class' => $this->get_status_class( $status ),
+		);
 	}
 
 	/** Render stored AI recommendations below a content row.
@@ -509,6 +558,7 @@ class CTO_Admin {
 		if ( ! is_array( $ai_data ) || empty( $ai_data ) ) {
 			return;
 		}
+		$ai_data = $this->filter_ai_data_for_post_type( $post, $ai_data );
 
 		?>
 		<tr class="cto-ai-result-row">
@@ -647,6 +697,7 @@ class CTO_Admin {
 		$term_id = is_array( $term ) ? absint( $term['term_id'] ) : absint( $term );
 		$result = wp_set_object_terms( $post_id, array( $term_id ), $taxonomy, true );
 		if ( is_wp_error( $result ) ) { return $result; }
+		$this->analyzer->analyze_post( $post_id );
 		CTO_AI_Service::log( 'taxonomy_applied', $post_id, $taxonomy . ':' . $term_name );
 		return true;
 	}

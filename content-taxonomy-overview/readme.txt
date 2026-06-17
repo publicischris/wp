@@ -85,3 +85,5 @@ The plugin does not automatically modify content, insert links, assign terms, or
 - Unterstützte Inhalte werden dynamisch aus allen im Admin sichtbaren Post Types ermittelt; Anhänge bleiben ausgeschlossen.
 - KI-Prompts und gespeicherte KI-Ergebnisse werden auf die Taxonomien begrenzt, die für den jeweiligen Post Type registriert sind. Kategorien und Tags werden nur empfohlen, wenn `category` bzw. `post_tag` für den Inhalt verfügbar sind.
 - Workflow-Aktionen laufen per AJAX ohne Seitenreload. Akzeptierte, geprüfte oder ignorierte Empfehlungen werden in der Übersicht ausgeblendet; eine erneute KI-Analyse erzeugt neue Vorschläge.
+- Unter Einstellungen können die zu analysierenden Post Types explizit aktiviert werden. Die Übersicht, Scans und KI-Prompts verwenden danach nur diese Auswahl.
+- Nach übernommenen Taxonomie-Empfehlungen wird die regelbasierte Analyse des Inhalts erneut ausgeführt; sichtbare Scores werden per AJAX aktualisiert.

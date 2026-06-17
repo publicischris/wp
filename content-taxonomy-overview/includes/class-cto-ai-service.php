@@ -33,6 +33,7 @@ class CTO_AI_Service {
 			'auto_after_rule'           => 0,
 			'allow_create_terms'        => 0,
 			'allow_create_custom_terms' => 0,
+			'enabled_post_types'        => array( 'post', 'page' ),
 		);
 	}
 
@@ -61,6 +62,14 @@ class CTO_AI_Service {
 			$api_key = '';
 		}
 
+		$available_post_types = function_exists( 'get_post_types' ) ? get_post_types( array( 'show_ui' => true ), 'names' ) : array( 'post' => 'post', 'page' => 'page' );
+		unset( $available_post_types['attachment'] );
+		$enabled_post_types = isset( $settings['enabled_post_types'] ) && is_array( $settings['enabled_post_types'] ) ? array_map( 'sanitize_key', wp_unslash( $settings['enabled_post_types'] ) ) : (array) $current['enabled_post_types'];
+		$enabled_post_types = array_values( array_intersect( $enabled_post_types, array_values( $available_post_types ) ) );
+		if ( empty( $enabled_post_types ) ) {
+			$enabled_post_types = array( 'post', 'page' );
+		}
+
 		$next = array(
 			'api_key'                   => $api_key,
 			'model'                     => isset( $settings['model'] ) ? sanitize_text_field( wp_unslash( $settings['model'] ) ) : $current['model'],
@@ -73,6 +82,7 @@ class CTO_AI_Service {
 			'auto_after_rule'           => empty( $settings['auto_after_rule'] ) ? 0 : 1,
 			'allow_create_terms'        => empty( $settings['allow_create_terms'] ) ? 0 : 1,
 			'allow_create_custom_terms' => empty( $settings['allow_create_custom_terms'] ) ? 0 : 1,
+			'enabled_post_types'        => $enabled_post_types,
 		);
 
 		if ( '' === $next['model'] ) {
