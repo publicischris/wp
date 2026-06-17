@@ -31,6 +31,9 @@ class CTO_Admin {
 		add_action( 'admin_post_cto_ai_analyze_all', array( $this, 'handle_ai_analyze_all' ) );
 		add_action( 'admin_post_cto_ai_recommendation_action', array( $this, 'handle_recommendation_action' ) );
 		add_action( 'admin_post_cto_save_columns', array( $this, 'handle_save_columns' ) );
+		add_action( 'wp_ajax_cto_analyze_single', array( $this, 'ajax_analyze_single' ) );
+		add_action( 'wp_ajax_cto_ai_analyze_single', array( $this, 'ajax_ai_analyze_single' ) );
+		add_action( 'wp_ajax_cto_recommendation_action', array( $this, 'ajax_recommendation_action' ) );
 	}
 
 	/** Register menu. */
@@ -48,6 +51,12 @@ class CTO_Admin {
 		}
 		wp_enqueue_style( 'cto-admin', CTO_PLUGIN_URL . 'assets/admin.css', array(), CTO_VERSION );
 		wp_enqueue_script( 'cto-admin', CTO_PLUGIN_URL . 'assets/admin.js', array(), CTO_VERSION, true );
+		wp_localize_script( 'cto-admin', 'ctoAdmin', array(
+			'ajaxUrl'    => admin_url( 'admin-ajax.php' ),
+			'working'    => __( 'Wird verarbeitet…', 'content-taxonomy-overview' ),
+			'success'    => __( 'Aktion erfolgreich. Ansicht wird aktualisiert…', 'content-taxonomy-overview' ),
+			'error'      => __( 'Die Aktion ist fehlgeschlagen.', 'content-taxonomy-overview' ),
+		) );
 	}
 
 	/** Render overview page. */
@@ -165,19 +174,47 @@ class CTO_Admin {
 		$action  = isset( $_GET['rec_action'] ) ? sanitize_key( wp_unslash( $_GET['rec_action'] ) ) : '';
 		if ( ! $post_id || ! $key || ! current_user_can( 'edit_post', $post_id ) ) { wp_die( esc_html__( 'Insufficient permissions.', 'content-taxonomy-overview' ) ); }
 		check_admin_referer( 'cto_ai_recommendation_' . $post_id . '_' . $key );
-		$status = get_post_meta( $post_id, '_cto_ai_recommendation_status', true );
-		$status = is_array( $status ) ? $status : array();
-		$notice = 'rec_updated';
-		if ( 'ignore' === $action ) { $status[ $key ] = 'ignored'; CTO_AI_Service::log( 'recommendation_ignored', $post_id, $key ); }
-		elseif ( 'reset' === $action ) { $status[ $key ] = 'open'; }
-		elseif ( 'accept' === $action ) { $result = $this->accept_recommendation( $post_id, $key ); if ( is_wp_error( $result ) ) { $notice = 'rec_failed'; } else { $status[ $key ] = 'accepted'; CTO_AI_Service::log( 'recommendation_accepted', $post_id, $key ); } }
-		elseif ( 'checked' === $action ) { $status[ $key ] = 'accepted'; CTO_AI_Service::log( 'internal_link_checked', $post_id, $key ); }
-		update_post_meta( $post_id, '_cto_ai_recommendation_status', $status );
+		$result   = $this->process_recommendation_action( $post_id, $key, $action );
+		$notice   = is_wp_error( $result ) ? 'rec_failed' : 'rec_updated';
 		$redirect = isset( $_GET['redirect_to'] ) ? esc_url_raw( wp_unslash( $_GET['redirect_to'] ) ) : add_query_arg( array( 'page' => 'content-taxonomy-overview' ), admin_url( 'admin.php' ) );
 		$args     = array( 'cto_notice' => $notice );
-		if ( isset( $result ) && is_wp_error( $result ) ) { $args['cto_error'] = $result->get_error_message(); }
+		if ( is_wp_error( $result ) ) { $args['cto_error'] = $result->get_error_message(); }
 		wp_safe_redirect( add_query_arg( $args, $redirect ) );
 		exit;
+	}
+
+
+	/** AJAX: single rule-based analysis. */
+	public function ajax_analyze_single() {
+		$post_id = isset( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0;
+		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) { wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'content-taxonomy-overview' ) ), 403 ); }
+		check_ajax_referer( 'cto_analyze_single_' . $post_id, 'nonce' );
+		$result = $this->analyzer->analyze_post( $post_id );
+		if ( is_wp_error( $result ) ) { wp_send_json_error( array( 'message' => $result->get_error_message() ), 400 ); }
+		wp_send_json_success( array( 'message' => __( 'Der Inhalt wurde neu analysiert.', 'content-taxonomy-overview' ) ) );
+	}
+
+	/** AJAX: single AI analysis. */
+	public function ajax_ai_analyze_single() {
+		$post_id = isset( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0;
+		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) { wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'content-taxonomy-overview' ) ), 403 ); }
+		check_ajax_referer( 'cto_ai_analyze_single_' . $post_id, 'nonce' );
+		$service = new CTO_AI_Service();
+		$result  = $service->analyze_post_with_ai( $post_id );
+		if ( is_wp_error( $result ) ) { wp_send_json_error( array( 'message' => $result->get_error_message() ), 400 ); }
+		wp_send_json_success( array( 'message' => __( 'KI-Analyse wurde erstellt.', 'content-taxonomy-overview' ) ) );
+	}
+
+	/** AJAX: recommendation workflow action. */
+	public function ajax_recommendation_action() {
+		$post_id = isset( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0;
+		$key     = isset( $_POST['rec_key'] ) ? sanitize_text_field( wp_unslash( $_POST['rec_key'] ) ) : '';
+		$action  = isset( $_POST['rec_action'] ) ? sanitize_key( wp_unslash( $_POST['rec_action'] ) ) : '';
+		if ( ! $post_id || ! $key || ! current_user_can( 'edit_post', $post_id ) ) { wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'content-taxonomy-overview' ) ), 403 ); }
+		check_ajax_referer( 'cto_ai_recommendation_' . $post_id . '_' . $key, 'nonce' );
+		$result = $this->process_recommendation_action( $post_id, $key, $action );
+		if ( is_wp_error( $result ) ) { wp_send_json_error( array( 'message' => $result->get_error_message() ), 400 ); }
+		wp_send_json_success( array( 'message' => __( 'Empfehlungsstatus aktualisiert.', 'content-taxonomy-overview' ), 'status' => $result ) );
 	}
 
 	/** Render notices. */
@@ -444,7 +481,7 @@ class CTO_Admin {
 			'struct_score' => esc_html( get_post_meta( $post->ID, '_cto_structure_score', true ) ),
 			'total_score'  => '<strong>' . esc_html( get_post_meta( $post->ID, '_cto_total_score', true ) ) . '</strong>',
 			'notice'       => '<span class="cto-status cto-status-' . esc_attr( $status_class ) . '">' . esc_html( $status ) . '</span>',
-			'action'       => '<a class="button button-small" href="' . esc_url( $action ) . '">' . esc_html__( 'Neu analysieren', 'content-taxonomy-overview' ) . '</a>' . ( CTO_AI_Service::is_configured() ? ' <a class="button button-small" href="' . esc_url( $ai_action ) . '">' . esc_html__( 'Mit KI analysieren', 'content-taxonomy-overview' ) . '</a>' : '' ),
+			'action'       => '<a class="button button-small cto-ajax-action" href="' . esc_url( $action ) . '" data-cto-ajax="analyze" data-post-id="' . esc_attr( $post->ID ) . '" data-nonce="' . esc_attr( wp_create_nonce( 'cto_analyze_single_' . $post->ID ) ) . '">' . esc_html__( 'Neu analysieren', 'content-taxonomy-overview' ) . '</a>' . ( CTO_AI_Service::is_configured() ? ' <a class="button button-small cto-ajax-action" href="' . esc_url( $ai_action ) . '" data-cto-ajax="ai_analyze" data-post-id="' . esc_attr( $post->ID ) . '" data-nonce="' . esc_attr( wp_create_nonce( 'cto_ai_analyze_single_' . $post->ID ) ) . '">' . esc_html__( 'Mit KI analysieren', 'content-taxonomy-overview' ) . '</a>' : '' ),
 		);
 		?>
 		<tr>
@@ -472,10 +509,11 @@ class CTO_Admin {
 		?>
 		<tr class="cto-ai-result-row">
 			<td colspan="<?php echo esc_attr( count( $visible_columns ) ); ?>">
-				<strong><?php esc_html_e( 'KI-Empfehlungen', 'content-taxonomy-overview' ); ?></strong>
+				<details class="cto-ai-details"><summary><strong><?php esc_html_e( 'KI-Empfehlungen anzeigen', 'content-taxonomy-overview' ); ?></strong>
 				<?php if ( ! empty( $ai_data['analyzed_at'] ) ) : ?>
 					<span class="description">— <?php echo esc_html( mysql2date( 'd.m.Y H:i', $ai_data['analyzed_at'] ) ); ?></span>
 				<?php endif; ?>
+				</summary>
 				<div class="cto-ai-grid">
 					<?php $this->render_ai_field( __( 'Hauptthema', 'content-taxonomy-overview' ), isset( $ai_data['main_topic'] ) ? $ai_data['main_topic'] : '' ); ?>
 					<?php $this->render_ai_field( __( 'Kategorien', 'content-taxonomy-overview' ), isset( $ai_data['recommended_categories'] ) ? $ai_data['recommended_categories'] : array() ); ?>
@@ -488,7 +526,7 @@ class CTO_Admin {
 					<?php $this->render_ai_field( __( 'Begründung', 'content-taxonomy-overview' ), isset( $ai_data['summary'] ) ? $ai_data['summary'] : '' ); ?>
 				</div>
 				<?php $this->render_recommendation_workflow( $post, $ai_data ); ?>
-				<p class="description"><?php esc_html_e( 'Hinweis: Die KI-Analyse ist nur eine Empfehlung. Es wurden keine Inhalte, Kategorien, Tags oder Taxonomien automatisch geändert.', 'content-taxonomy-overview' ); ?></p>
+				<p class="description"><?php esc_html_e( 'Hinweis: Die KI-Analyse ist nur eine Empfehlung. Es wurden keine Inhalte, Kategorien, Tags oder Taxonomien automatisch geändert.', 'content-taxonomy-overview' ); ?></p></details>
 			</td>
 		</tr>
 		<?php
@@ -527,10 +565,24 @@ class CTO_Admin {
 		}
 	}
 
+
+	/** Process a recommendation workflow action and return the new status. */
+	private function process_recommendation_action( $post_id, $key, $action ) {
+		$status = get_post_meta( $post_id, '_cto_ai_recommendation_status', true );
+		$status = is_array( $status ) ? $status : array();
+		if ( 'ignore' === $action ) { $status[ $key ] = 'ignored'; CTO_AI_Service::log( 'recommendation_ignored', $post_id, $key ); }
+		elseif ( 'reset' === $action ) { $status[ $key ] = 'open'; }
+		elseif ( 'accept' === $action ) { $result = $this->accept_recommendation( $post_id, $key ); if ( is_wp_error( $result ) ) { return $result; } $status[ $key ] = 'accepted'; CTO_AI_Service::log( 'recommendation_accepted', $post_id, $key ); }
+		elseif ( 'checked' === $action ) { $status[ $key ] = 'accepted'; CTO_AI_Service::log( 'internal_link_checked', $post_id, $key ); }
+		else { return new WP_Error( 'cto_invalid_action', __( 'Ungültige Aktion.', 'content-taxonomy-overview' ) ); }
+		update_post_meta( $post_id, '_cto_ai_recommendation_status', $status );
+		return $status[ $key ];
+	}
+
 	/** Build recommendation action link. */
 	private function recommendation_link( $post_id, $key, $action, $label ) {
 		$url = wp_nonce_url( add_query_arg( array( 'action' => 'cto_ai_recommendation_action', 'post_id' => $post_id, 'rec_key' => $key, 'rec_action' => $action, 'redirect_to' => $this->get_current_overview_url() ), admin_url( 'admin-post.php' ) ), 'cto_ai_recommendation_' . $post_id . '_' . $key );
-		return '<a class="button button-small" href="' . esc_url( $url ) . '">' . esc_html( $label ) . '</a>';
+		return '<a class="button button-small cto-ajax-action" href="' . esc_url( $url ) . '" data-cto-ajax="recommendation" data-post-id="' . esc_attr( $post_id ) . '" data-rec-key="' . esc_attr( $key ) . '" data-rec-action="' . esc_attr( $action ) . '" data-nonce="' . esc_attr( wp_create_nonce( 'cto_ai_recommendation_' . $post_id . '_' . $key ) ) . '">' . esc_html( $label ) . '</a>';
 	}
 
 	/** Build current overview URL so workflow actions keep active filters. */

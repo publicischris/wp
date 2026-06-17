@@ -21,7 +21,7 @@ Rule-based analysis remains available without an API key. Use "Alle Inhalte neu 
 Enter the OpenAI API key under Content Taxonomy > Einstellungen. The key is masked in the UI and is not logged. Use "API-Verbindung testen" to validate the saved key. If AI is enabled, use "Mit KI analysieren" for one row or "Alle Inhalte mit KI analysieren" for a limited batch of 10 items.
 
 == Phase 3 ==
-AI recommendations are shown below each analyzed row. Recommendations can be accepted, ignored, or reset. Categories, tags, and existing custom-taxonomy terms are only applied after an explicit admin click. New terms are only created when the corresponding settings are enabled. Internal link recommendations are suggestions only and are never inserted automatically.
+AI recommendations are shown in a collapsed detail panel below each analyzed row to keep the overview compact. Row actions and recommendation workflow actions use AJAX with visual feedback, so active filters remain in place. Recommendations can be accepted, ignored, or reset. Categories, tags, and existing custom-taxonomy terms are only applied after an explicit admin click. New terms are only created when the corresponding settings are enabled. Internal link recommendations are suggestions only and are never inserted automatically.
 
 == Settings ==
 * OpenAI API Key
