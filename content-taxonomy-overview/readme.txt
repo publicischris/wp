@@ -4,7 +4,7 @@ Tags: taxonomy, content audit, admin, seo, ai-ready
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.1.0
+Stable tag: 1.1.1
 License: GPLv2 or later
 
 Rule-based WordPress admin overview for taxonomy and content-structure completeness of posts and pages with optional, controlled AI recommendations.
@@ -93,6 +93,11 @@ The plugin does not automatically modify content, insert links, assign terms, or
 - Die Avada/Fusion-Textextraktion nutzt mehrere Strategien: Shortcode-Tag-Cleanup, gerenderten Content als Fallback und ausgewählte Builder-Metafelder. KI-Empfehlungen werden vor der Anzeige gegen aktuelle Terms abgeglichen; bereits vorhandene Terms erscheinen nicht mehr als Übernehmen-Aufgabe.
 
 == Changelog ==
+= 1.1.1 =
+* Konsistente Score-Details nach Reanalyse.
+* Synchronisierung von Tabellenwerten und Score-Kriterien.
+* Korrektur für Tags, Custom Taxonomies, H2 und interne Links in der Detailbewertung.
+
 = 1.1.0 =
 * Verbesserte Aktualisierung von Kategorien, Tags und Custom Taxonomies nach manueller Reanalyse.
 * Frischeres Laden von Term-Daten nach Änderungen im Editor.

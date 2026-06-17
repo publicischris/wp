@@ -3,7 +3,7 @@
  * Plugin Name: Content Compass
  * Plugin URI:  https://example.com/content-taxonomy-overview
  * Description: Rule-based overview for post/page taxonomy quality and content structure, with prepared optional AI analysis settings.
- * Version:     1.1.0
+ * Version:     1.1.1
  * Author:      Content Compass
  * Text Domain: content-taxonomy-overview
  * Domain Path: /languages
@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'CTO_VERSION', '1.1.0' );
+define( 'CTO_VERSION', '1.1.1' );
 define( 'CTO_PLUGIN_FILE', __FILE__ );
 define( 'CTO_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'CTO_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

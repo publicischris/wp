@@ -194,6 +194,7 @@ class CTO_Admin {
 		check_ajax_referer( 'cto_analyze_single_' . $post_id, 'nonce' );
 		$this->invalidate_content_caches( $post_id );
 		$result = $this->analyzer->analyze_post( $post_id );
+		$this->invalidate_content_caches( $post_id );
 		if ( is_wp_error( $result ) ) { wp_send_json_error( array( 'message' => $result->get_error_message() ), 400 ); }
 		wp_send_json_success( array( 'message' => __( 'Analyse aktualisiert. Kategorien, Tags und Taxonomien wurden neu geladen.', 'content-taxonomy-overview' ), 'scores' => $this->get_score_payload( $post_id ) ) );
 	}
@@ -535,6 +536,7 @@ class CTO_Admin {
 		$scoring    = isset( $data['scoring'] ) && is_array( $data['scoring'] ) ? $data['scoring'] : $this->build_legacy_score_details( $post, $data );
 		$extraction = isset( $data['content']['content_extraction'] ) && is_array( $data['content']['content_extraction'] ) ? $data['content']['content_extraction'] : array();
 		$status     = (string) get_post_meta( $post->ID, '_cto_analysis_status', true );
+		$details_source = isset( $data['scoring'] ) ? __( 'aktuelle Analyse', 'content-taxonomy-overview' ) : __( 'rekonstruierte Analyse', 'content-taxonomy-overview' );
 		?>
 		<div class="cto-score-details">
 			<h4><?php esc_html_e( 'Score-Details', 'content-taxonomy-overview' ); ?></h4>
@@ -543,6 +545,8 @@ class CTO_Admin {
 				<span><?php echo esc_html( sprintf( __( 'Struktur-Score: %s / 100', 'content-taxonomy-overview' ), get_post_meta( $post->ID, '_cto_structure_score', true ) ) ); ?></span>
 				<span><?php echo esc_html( sprintf( __( 'Gesamt-Score: %s / 100', 'content-taxonomy-overview' ), get_post_meta( $post->ID, '_cto_total_score', true ) ) ); ?></span>
 				<span><?php echo esc_html( sprintf( __( 'Status: %s', 'content-taxonomy-overview' ), '' !== $status ? $status : '—' ) ); ?></span>
+				<span><?php echo esc_html( sprintf( __( 'Details-Quelle: %s', 'content-taxonomy-overview' ), $details_source ) ); ?></span>
+				<span><?php echo esc_html( sprintf( __( 'Schema: %s', 'content-taxonomy-overview' ), $data['analysis_schema_version'] ?? 'legacy' ) ); ?></span>
 			</div>
 			<div class="cto-score-criteria">
 				<div><h5><?php esc_html_e( 'Taxonomie', 'content-taxonomy-overview' ); ?></h5><?php $this->render_criteria_list( $scoring['taxonomy']['criteria'] ?? array() ); ?></div>

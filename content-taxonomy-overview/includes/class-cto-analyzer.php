@@ -39,6 +39,7 @@ class CTO_Analyzer {
 			'post_id'              => $post_id,
 			'post_type'            => $post->post_type,
 			'post_status'          => $post->post_status,
+			'analysis_schema_version' => '1.1.1',
 			'taxonomies'           => $taxonomy_data,
 			'content'              => $content_data,
 			'content_extraction'   => isset( $content_data['content_extraction'] ) ? $content_data['content_extraction'] : array(),
@@ -139,6 +140,12 @@ class CTO_Analyzer {
 			'has_custom_taxonomy_term' => $has_custom,
 			'custom_taxonomies_exist'  => $this->custom_taxonomies_exist_for_post_type( $post->post_type ),
 			'has_default_category'     => $this->has_default_category_name( $category_terms ),
+			'categories_count'          => count( $category_terms ),
+			'tags_count'                => count( $tag_terms ),
+			'custom_taxonomies_count'   => $has_custom ? 1 : 0,
+			'has_multiple_taxonomy_terms' => $total_terms > 1,
+			'has_no_uncategorized'      => ! $this->has_default_category_name( $category_terms ),
+			'has_custom_taxonomy'       => $has_custom,
 		);
 	}
 
@@ -229,6 +236,13 @@ class CTO_Analyzer {
 			'featured_image'            => (bool) $featured_image,
 			'seo_plugin_detected'       => (bool) $meta['plugin_detected'],
 			'meta_description_present'  => (bool) $meta['description_present'],
+			'internal_links_count'      => (int) $links['internal'],
+			'external_links_count'      => (int) $links['external'],
+			'has_more_than_500_words'   => (int) $extracted['word_count'] > 500,
+			'has_h2'                   => (int) $extracted['h2_count'] > 0,
+			'has_featured_image'       => (bool) $featured_image,
+			'has_internal_link'        => (int) $links['internal'] > 0,
+			'has_meta_description'     => (bool) $meta['description_present'],
 			'content_extraction'        => $extracted['diagnostics'],
 		);
 	}

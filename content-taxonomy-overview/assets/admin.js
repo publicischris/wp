@@ -110,6 +110,9 @@
 				markButtonDone(link);
 			}
 			setBusy(link, false);
+			if (type === 'analyze' || (type === 'recommendation' && (link.dataset.recAction || '') === 'accept')) {
+				window.setTimeout(function(){ window.location.reload(); }, 650);
+			}
 		}).catch(function(error){
 			showNotice(error.message, 'error');
 			setBusy(link, false);
