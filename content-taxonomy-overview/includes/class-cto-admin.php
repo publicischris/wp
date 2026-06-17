@@ -106,7 +106,8 @@ class CTO_Admin {
 		}
 		check_admin_referer( 'cto_analyze_single_' . $post_id );
 		$this->analyzer->analyze_post( $post_id );
-		wp_safe_redirect( add_query_arg( array( 'page' => 'content-taxonomy-overview', 'cto_notice' => 'analyzed_single' ), admin_url( 'admin.php' ) ) );
+		$redirect = isset( $_GET['redirect_to'] ) ? esc_url_raw( wp_unslash( $_GET['redirect_to'] ) ) : add_query_arg( array( 'page' => 'content-taxonomy-overview' ), admin_url( 'admin.php' ) );
+		wp_safe_redirect( add_query_arg( array( 'cto_notice' => 'analyzed_single' ), $redirect ) );
 		exit;
 	}
 
@@ -131,7 +132,8 @@ class CTO_Admin {
 			$args['cto_error'] = $result->get_error_message();
 		}
 
-		wp_safe_redirect( add_query_arg( $args, admin_url( 'admin.php' ) ) );
+		$redirect = isset( $_GET['redirect_to'] ) ? esc_url_raw( wp_unslash( $_GET['redirect_to'] ) ) : add_query_arg( array( 'page' => 'content-taxonomy-overview' ), admin_url( 'admin.php' ) );
+		wp_safe_redirect( add_query_arg( $args, $redirect ) );
 		exit;
 	}
 
@@ -171,7 +173,10 @@ class CTO_Admin {
 		elseif ( 'accept' === $action ) { $result = $this->accept_recommendation( $post_id, $key ); if ( is_wp_error( $result ) ) { $notice = 'rec_failed'; } else { $status[ $key ] = 'accepted'; CTO_AI_Service::log( 'recommendation_accepted', $post_id, $key ); } }
 		elseif ( 'checked' === $action ) { $status[ $key ] = 'accepted'; CTO_AI_Service::log( 'internal_link_checked', $post_id, $key ); }
 		update_post_meta( $post_id, '_cto_ai_recommendation_status', $status );
-		wp_safe_redirect( add_query_arg( array( 'page' => 'content-taxonomy-overview', 'cto_notice' => $notice ), admin_url( 'admin.php' ) ) );
+		$redirect = isset( $_GET['redirect_to'] ) ? esc_url_raw( wp_unslash( $_GET['redirect_to'] ) ) : add_query_arg( array( 'page' => 'content-taxonomy-overview' ), admin_url( 'admin.php' ) );
+		$args     = array( 'cto_notice' => $notice );
+		if ( isset( $result ) && is_wp_error( $result ) ) { $args['cto_error'] = $result->get_error_message(); }
+		wp_safe_redirect( add_query_arg( $args, $redirect ) );
 		exit;
 	}
 
@@ -195,7 +200,8 @@ class CTO_Admin {
 		} elseif ( 'rec_updated' === $notice ) {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Empfehlungsstatus aktualisiert.', 'content-taxonomy-overview' ) . '</p></div>';
 		} elseif ( 'rec_failed' === $notice ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Empfehlung konnte nicht übernommen werden. Prüfe Einstellungen und vorhandene Terms.', 'content-taxonomy-overview' ) . '</p></div>';
+			$error = isset( $_GET['cto_error'] ) ? sanitize_text_field( wp_unslash( $_GET['cto_error'] ) ) : __( 'Empfehlung konnte nicht übernommen werden. Prüfe Einstellungen und vorhandene Terms.', 'content-taxonomy-overview' );
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html( $error ) . '</p></div>';
 		}
 	}
 
@@ -417,8 +423,8 @@ class CTO_Admin {
 				$custom[] = $info['label'] . ': ' . implode( ', ', $info['terms'] );
 			}
 		}
-		$action       = wp_nonce_url( add_query_arg( array( 'action' => 'cto_analyze_single', 'post_id' => $post->ID ), admin_url( 'admin-post.php' ) ), 'cto_analyze_single_' . $post->ID );
-		$ai_action    = wp_nonce_url( add_query_arg( array( 'action' => 'cto_ai_analyze_single', 'post_id' => $post->ID ), admin_url( 'admin-post.php' ) ), 'cto_ai_analyze_single_' . $post->ID );
+		$action       = wp_nonce_url( add_query_arg( array( 'action' => 'cto_analyze_single', 'post_id' => $post->ID, 'redirect_to' => $this->get_current_overview_url() ), admin_url( 'admin-post.php' ) ), 'cto_analyze_single_' . $post->ID );
+		$ai_action    = wp_nonce_url( add_query_arg( array( 'action' => 'cto_ai_analyze_single', 'post_id' => $post->ID, 'redirect_to' => $this->get_current_overview_url() ), admin_url( 'admin-post.php' ) ), 'cto_ai_analyze_single_' . $post->ID );
 		$status       = (string) get_post_meta( $post->ID, '_cto_analysis_status', true );
 		$status_class = $this->get_status_class( $status );
 		$row          = array(
@@ -523,8 +529,19 @@ class CTO_Admin {
 
 	/** Build recommendation action link. */
 	private function recommendation_link( $post_id, $key, $action, $label ) {
-		$url = wp_nonce_url( add_query_arg( array( 'action' => 'cto_ai_recommendation_action', 'post_id' => $post_id, 'rec_key' => $key, 'rec_action' => $action ), admin_url( 'admin-post.php' ) ), 'cto_ai_recommendation_' . $post_id . '_' . $key );
+		$url = wp_nonce_url( add_query_arg( array( 'action' => 'cto_ai_recommendation_action', 'post_id' => $post_id, 'rec_key' => $key, 'rec_action' => $action, 'redirect_to' => $this->get_current_overview_url() ), admin_url( 'admin-post.php' ) ), 'cto_ai_recommendation_' . $post_id . '_' . $key );
 		return '<a class="button button-small" href="' . esc_url( $url ) . '">' . esc_html( $label ) . '</a>';
+	}
+
+	/** Build current overview URL so workflow actions keep active filters. */
+	private function get_current_overview_url() {
+		$args = array();
+		foreach ( wp_unslash( $_GET ) as $key => $value ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			if ( is_scalar( $value ) ) { $args[ sanitize_key( $key ) ] = sanitize_text_field( $value ); }
+		}
+		foreach ( array( 'action', '_wpnonce', 'cto_notice', 'cto_error', 'redirect_to', 'post_id', 'rec_key', 'rec_action' ) as $remove_key ) { unset( $args[ $remove_key ] ); }
+		$args['page'] = 'content-taxonomy-overview';
+		return add_query_arg( $args, admin_url( 'admin.php' ) );
 	}
 
 	/** Accept one recommendation, applying taxonomy terms only for taxonomy recommendations. */
@@ -533,16 +550,24 @@ class CTO_Admin {
 		if ( ! is_array( $data ) ) { return new WP_Error( 'cto_no_ai_data', __( 'No AI data found.', 'content-taxonomy-overview' ) ); }
 		foreach ( array( 'recommended_categories' => 'category', 'recommended_tags' => 'post_tag' ) as $group => $taxonomy ) {
 			foreach ( (array) ( $data[ $group ] ?? array() ) as $index => $item ) {
-				if ( CTO_AI_Service::recommendation_key( $group, $index, $item ) === $key ) { return $this->apply_term_recommendation( $post_id, $taxonomy, $item['name'] ?? '' ); }
+				if ( CTO_AI_Service::recommendation_key( $group, $index, $item ) === $key ) { return $this->apply_term_recommendation( $post_id, $taxonomy, $this->get_recommendation_term_name( $item ) ); }
 			}
 		}
 		foreach ( (array) ( $data['recommended_custom_taxonomies'] ?? array() ) as $tax_index => $tax_item ) {
 			$taxonomy = sanitize_key( $tax_item['taxonomy'] ?? '' );
 			foreach ( (array) ( $tax_item['terms'] ?? array() ) as $term_index => $term_item ) {
-				if ( CTO_AI_Service::recommendation_key( 'recommended_custom_taxonomies', $tax_index . '_' . $term_index, $term_item ) === $key ) { return $this->apply_term_recommendation( $post_id, $taxonomy, $term_item['name'] ?? '', true ); }
+				if ( CTO_AI_Service::recommendation_key( 'recommended_custom_taxonomies', $tax_index . '_' . $term_index, $term_item ) === $key ) { return $this->apply_term_recommendation( $post_id, $taxonomy, $this->get_recommendation_term_name( $term_item ), true ); }
 			}
 		}
 		return true;
+	}
+
+	/** Get a recommendation term name from old and new stored formats. */
+	private function get_recommendation_term_name( $item ) {
+		if ( is_array( $item ) ) {
+			return sanitize_text_field( $item['name'] ?? $item['term'] ?? $item['title'] ?? '' );
+		}
+		return sanitize_text_field( (string) $item );
 	}
 
 	/** Apply term recommendation after explicit admin click. */
@@ -551,6 +576,7 @@ class CTO_Admin {
 		$post = get_post( $post_id );
 		if ( ! $post || ! taxonomy_exists( $taxonomy ) || ! is_object_in_taxonomy( $post->post_type, $taxonomy ) ) { return new WP_Error( 'cto_tax_invalid', __( 'Taxonomy is not registered for this post type.', 'content-taxonomy-overview' ) ); }
 		$term_name = sanitize_text_field( $term_name );
+		if ( '' === $term_name ) { return new WP_Error( 'cto_empty_term', __( 'Die Empfehlung enthält keinen gültigen Begriff.', 'content-taxonomy-overview' ) ); }
 		$term = term_exists( $term_name, $taxonomy );
 		if ( ! $term ) {
 			$allowed = $custom ? ! empty( $settings['allow_create_custom_terms'] ) : ! empty( $settings['allow_create_terms'] );
