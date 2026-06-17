@@ -31,7 +31,7 @@
 		if (!postId || !scores) { return; }
 		var row = document.querySelector('.cto-content-row[data-post-id="' + postId + '"]');
 		if (!row) { return; }
-		[['tax_score', scores.tax_score], ['struct_score', scores.struct_score], ['total_score', scores.total_score]].forEach(function(item){
+		[['tax_score', scores.tax_score], ['struct_score', scores.struct_score], ['total_score', scores.total_score], ['words', scores.words], ['internal', scores.internal], ['external', scores.external], ['h2', scores.h2]].forEach(function(item){
 			var cell = row.querySelector('[data-cto-column="' + item[0] + '"]');
 			if (cell && typeof item[1] !== 'undefined') {
 				cell.innerHTML = item[0] === 'total_score' ? '<strong>' + String(item[1]) + '</strong>' : String(item[1]);

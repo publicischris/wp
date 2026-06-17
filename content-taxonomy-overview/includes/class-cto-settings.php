@@ -36,7 +36,7 @@ class CTO_Settings {
 		$enabled_post_types = isset( $settings['enabled_post_types'] ) && is_array( $settings['enabled_post_types'] ) ? $settings['enabled_post_types'] : array( 'post', 'page' );
 		?>
 		<div class="wrap cto-wrap">
-			<h1><?php esc_html_e( 'Content Taxonomy Einstellungen', 'content-taxonomy-overview' ); ?></h1>
+			<h1><?php esc_html_e( 'Content Compass Einstellungen', 'content-taxonomy-overview' ); ?></h1>
 			<?php $this->render_notices(); ?>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<?php wp_nonce_field( 'cto_save_settings' ); ?>

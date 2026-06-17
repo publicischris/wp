@@ -38,7 +38,7 @@ class CTO_Admin {
 
 	/** Register menu. */
 	public function register_menu() {
-		add_menu_page( __( 'Content Taxonomy', 'content-taxonomy-overview' ), __( 'Content Taxonomy', 'content-taxonomy-overview' ), 'manage_options', 'content-taxonomy-overview', array( $this, 'render_page' ), 'dashicons-category', 58 );
+		add_menu_page( __( 'Content Compass', 'content-taxonomy-overview' ), __( 'Content Compass', 'content-taxonomy-overview' ), 'manage_options', 'content-taxonomy-overview', array( $this, 'render_page' ), 'dashicons-category', 58 );
 	}
 
 	/** Enqueue admin assets.
@@ -70,7 +70,7 @@ class CTO_Admin {
 		$columns = $this->get_visible_columns();
 		?>
 		<div class="wrap cto-wrap">
-			<h1><?php esc_html_e( 'Content Taxonomy Overview', 'content-taxonomy-overview' ); ?></h1>
+			<h1><?php esc_html_e( 'Content Compass', 'content-taxonomy-overview' ); ?></h1>
 			<?php $this->render_notices(); ?>
 			<?php $this->render_summary(); ?>
 			<?php $this->render_score_explanation(); ?>
@@ -91,8 +91,9 @@ class CTO_Admin {
 				<input type="hidden" name="page" value="content-taxonomy-overview" />
 				<?php $this->render_filters( $filters ); ?>
 			</form>
+			<?php $this->render_pagination( $query, $filters, 'top' ); ?>
 			<?php $this->render_table( $query->posts, $columns ); ?>
-			<?php $this->render_pagination( $query, $filters ); ?>
+			<?php $this->render_pagination( $query, $filters, 'bottom' ); ?>
 		</div>
 		<?php
 	}
@@ -115,6 +116,7 @@ class CTO_Admin {
 			wp_die( esc_html__( 'Insufficient permissions.', 'content-taxonomy-overview' ) );
 		}
 		check_admin_referer( 'cto_analyze_single_' . $post_id );
+		clean_post_cache( $post_id );
 		$this->analyzer->analyze_post( $post_id );
 		$redirect = isset( $_GET['redirect_to'] ) ? esc_url_raw( wp_unslash( $_GET['redirect_to'] ) ) : add_query_arg( array( 'page' => 'content-taxonomy-overview' ), admin_url( 'admin.php' ) );
 		wp_safe_redirect( add_query_arg( array( 'cto_notice' => 'analyzed_single' ), $redirect ) );
@@ -190,9 +192,10 @@ class CTO_Admin {
 		$post_id = isset( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0;
 		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) { wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'content-taxonomy-overview' ) ), 403 ); }
 		check_ajax_referer( 'cto_analyze_single_' . $post_id, 'nonce' );
+		clean_post_cache( $post_id );
 		$result = $this->analyzer->analyze_post( $post_id );
 		if ( is_wp_error( $result ) ) { wp_send_json_error( array( 'message' => $result->get_error_message() ), 400 ); }
-		wp_send_json_success( array( 'message' => __( 'Der Inhalt wurde neu analysiert.', 'content-taxonomy-overview' ), 'scores' => $this->get_score_payload( $post_id ) ) );
+		wp_send_json_success( array( 'message' => __( 'Analyse aktualisiert.', 'content-taxonomy-overview' ), 'scores' => $this->get_score_payload( $post_id ) ) );
 	}
 
 	/** AJAX: single AI analysis. */
@@ -225,7 +228,7 @@ class CTO_Admin {
 			$count = isset( $_GET['cto_count'] ) ? absint( $_GET['cto_count'] ) : 0;
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( sprintf( __( '%d Inhalte wurden analysiert.', 'content-taxonomy-overview' ), $count ) ) . '</p></div>';
 		} elseif ( 'analyzed_single' === $notice ) {
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Der Inhalt wurde neu analysiert.', 'content-taxonomy-overview' ) . '</p></div>';
+			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Analyse aktualisiert.', 'content-taxonomy-overview' ) . '</p></div>';
 		} elseif ( 'columns_saved' === $notice ) {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Spaltenauswahl gespeichert.', 'content-taxonomy-overview' ) . '</p></div>';
 		} elseif ( 'ai_analyzed_single' === $notice ) {
@@ -485,6 +488,7 @@ class CTO_Admin {
 		$ai_action    = wp_nonce_url( add_query_arg( array( 'action' => 'cto_ai_analyze_single', 'post_id' => $post->ID, 'redirect_to' => $this->get_current_overview_url() ), admin_url( 'admin-post.php' ) ), 'cto_ai_analyze_single_' . $post->ID );
 		$status       = (string) get_post_meta( $post->ID, '_cto_analysis_status', true );
 		$status_class = $this->get_status_class( $status );
+		$stale_notice = $this->is_rule_analysis_stale( $post ) ? '<br><span class="cto-stale-rule">' . esc_html__( 'Analyse möglicherweise veraltet', 'content-taxonomy-overview' ) . '</span>' : '';
 		$row          = array(
 			'title'        => '<a href="' . esc_url( get_edit_post_link( $post->ID ) ) . '">' . esc_html( get_the_title( $post ) ) . '</a>',
 			'post_type'    => esc_html( $post->post_type ),
@@ -501,7 +505,7 @@ class CTO_Admin {
 			'tax_score'    => esc_html( get_post_meta( $post->ID, '_cto_taxonomy_score', true ) ),
 			'struct_score' => esc_html( get_post_meta( $post->ID, '_cto_structure_score', true ) ),
 			'total_score'  => '<strong>' . esc_html( get_post_meta( $post->ID, '_cto_total_score', true ) ) . '</strong>',
-			'notice'       => '<span class="cto-status cto-status-' . esc_attr( $status_class ) . '">' . esc_html( $status ) . '</span>',
+			'notice'       => '<span class="cto-status cto-status-' . esc_attr( $status_class ) . '">' . esc_html( $status ) . '</span>' . $stale_notice,
 			'action'       => '<a class="button button-small cto-ajax-action" href="' . esc_url( $action ) . '" data-cto-ajax="analyze" data-post-id="' . esc_attr( $post->ID ) . '" data-nonce="' . esc_attr( wp_create_nonce( 'cto_analyze_single_' . $post->ID ) ) . '">' . esc_html__( 'Neu analysieren', 'content-taxonomy-overview' ) . '</a>' . ( CTO_AI_Service::is_configured() ? ' <a class="button button-small cto-ajax-action" href="' . esc_url( $ai_action ) . '" data-cto-ajax="ai_analyze" data-post-id="' . esc_attr( $post->ID ) . '" data-nonce="' . esc_attr( wp_create_nonce( 'cto_ai_analyze_single_' . $post->ID ) ) . '">' . esc_html__( 'Mit KI analysieren', 'content-taxonomy-overview' ) . '</a>' : '' ),
 		);
 		?>
@@ -662,12 +666,18 @@ class CTO_Admin {
 	 */
 	private function get_score_payload( $post_id ) {
 		$status = (string) get_post_meta( $post_id, '_cto_analysis_status', true );
+		$data   = get_post_meta( $post_id, '_cto_analysis_data', true );
+		$content = is_array( $data ) && isset( $data['content'] ) && is_array( $data['content'] ) ? $data['content'] : array();
 		return array(
 			'tax_score'    => (string) get_post_meta( $post_id, '_cto_taxonomy_score', true ),
 			'struct_score' => (string) get_post_meta( $post_id, '_cto_structure_score', true ),
 			'total_score'  => (string) get_post_meta( $post_id, '_cto_total_score', true ),
 			'notice'       => $status,
 			'notice_class' => $this->get_status_class( $status ),
+			'words'        => (string) ( $content['word_count'] ?? '—' ),
+			'internal'     => (string) ( $content['internal_links'] ?? '—' ),
+			'external'     => (string) ( $content['external_links'] ?? '—' ),
+			'h2'           => (string) ( $content['h2_count'] ?? '—' ),
 		);
 	}
 
@@ -884,6 +894,18 @@ class CTO_Admin {
 	}
 
 
+
+
+	/** Check whether rule-based analysis is older than the post modification date. */
+	private function is_rule_analysis_stale( $post ) {
+		$analyzed_at = (string) get_post_meta( $post->ID, '_cto_analyzed_at', true );
+		if ( '' === $analyzed_at || empty( $post->post_modified_gmt ) || '0000-00-00 00:00:00' === $post->post_modified_gmt ) {
+			return false;
+		}
+		$analyzed_gmt = get_gmt_from_date( $analyzed_at );
+		return strtotime( $post->post_modified_gmt ) > strtotime( $analyzed_gmt );
+	}
+
 	/** Map a status label to a stable CSS class.
 	 *
 	 * @param string $status Status label.
@@ -910,7 +932,7 @@ class CTO_Admin {
 	 * @param WP_Query $query Query.
 	 * @param array    $filters Filters.
 	 */
-	private function render_pagination( $query, $filters ) {
+	private function render_pagination( $query, $filters, $position = 'bottom' ) {
 		$total_pages = (int) $query->max_num_pages;
 		if ( $total_pages <= 1 ) {
 			return;
@@ -936,7 +958,7 @@ class CTO_Admin {
 			}
 		);
 
-		echo '<div class="tablenav bottom"><div class="tablenav-pages">';
+		echo '<div class="tablenav ' . esc_attr( $position ) . '"><div class="tablenav-pages">';
 		echo wp_kses_post(
 			paginate_links(
 				array(

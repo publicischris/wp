@@ -21,6 +21,7 @@ class CTO_Analyzer {
 	 */
 	public function analyze_post( $post_id ) {
 		$post_id = absint( $post_id );
+		clean_post_cache( $post_id );
 		$post    = get_post( $post_id );
 
 		if ( ! $post || ! in_array( $post->post_type, CTO_Utils::supported_post_types(), true ) || ! in_array( $post->post_status, CTO_Utils::supported_statuses(), true ) ) {
