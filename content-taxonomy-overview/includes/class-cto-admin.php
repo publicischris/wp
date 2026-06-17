@@ -116,7 +116,7 @@ class CTO_Admin {
 			wp_die( esc_html__( 'Insufficient permissions.', 'content-taxonomy-overview' ) );
 		}
 		check_admin_referer( 'cto_analyze_single_' . $post_id );
-		clean_post_cache( $post_id );
+		$this->invalidate_content_caches( $post_id );
 		$this->analyzer->analyze_post( $post_id );
 		$redirect = isset( $_GET['redirect_to'] ) ? esc_url_raw( wp_unslash( $_GET['redirect_to'] ) ) : add_query_arg( array( 'page' => 'content-taxonomy-overview' ), admin_url( 'admin.php' ) );
 		wp_safe_redirect( add_query_arg( array( 'cto_notice' => 'analyzed_single' ), $redirect ) );
@@ -192,10 +192,10 @@ class CTO_Admin {
 		$post_id = isset( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0;
 		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) { wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'content-taxonomy-overview' ) ), 403 ); }
 		check_ajax_referer( 'cto_analyze_single_' . $post_id, 'nonce' );
-		clean_post_cache( $post_id );
+		$this->invalidate_content_caches( $post_id );
 		$result = $this->analyzer->analyze_post( $post_id );
 		if ( is_wp_error( $result ) ) { wp_send_json_error( array( 'message' => $result->get_error_message() ), 400 ); }
-		wp_send_json_success( array( 'message' => __( 'Analyse aktualisiert.', 'content-taxonomy-overview' ), 'scores' => $this->get_score_payload( $post_id ) ) );
+		wp_send_json_success( array( 'message' => __( 'Analyse aktualisiert. Kategorien, Tags und Taxonomien wurden neu geladen.', 'content-taxonomy-overview' ), 'scores' => $this->get_score_payload( $post_id ) ) );
 	}
 
 	/** AJAX: single AI analysis. */
@@ -218,7 +218,8 @@ class CTO_Admin {
 		check_ajax_referer( 'cto_ai_recommendation_' . $post_id . '_' . $key, 'nonce' );
 		$result = $this->process_recommendation_action( $post_id, $key, $action );
 		if ( is_wp_error( $result ) ) { wp_send_json_error( array( 'message' => $result->get_error_message() ), 400 ); }
-		wp_send_json_success( array( 'message' => __( 'Empfehlungsstatus aktualisiert.', 'content-taxonomy-overview' ), 'status' => $result, 'scores' => $this->get_score_payload( $post_id ) ) );
+		$message = 'accept' === $action ? __( 'Taxonomie übernommen und Analyse aktualisiert.', 'content-taxonomy-overview' ) : __( 'Empfehlungsstatus aktualisiert.', 'content-taxonomy-overview' );
+		wp_send_json_success( array( 'message' => $message, 'status' => $result, 'scores' => $this->get_score_payload( $post_id ) ) );
 	}
 
 	/** Render notices. */
@@ -228,7 +229,7 @@ class CTO_Admin {
 			$count = isset( $_GET['cto_count'] ) ? absint( $_GET['cto_count'] ) : 0;
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( sprintf( __( '%d Inhalte wurden analysiert.', 'content-taxonomy-overview' ), $count ) ) . '</p></div>';
 		} elseif ( 'analyzed_single' === $notice ) {
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Analyse aktualisiert.', 'content-taxonomy-overview' ) . '</p></div>';
+			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Analyse aktualisiert. Kategorien, Tags und Taxonomien wurden neu geladen.', 'content-taxonomy-overview' ) . '</p></div>';
 		} elseif ( 'columns_saved' === $notice ) {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Spaltenauswahl gespeichert.', 'content-taxonomy-overview' ) . '</p></div>';
 		} elseif ( 'ai_analyzed_single' === $notice ) {
@@ -239,7 +240,7 @@ class CTO_Admin {
 		} elseif ( 'ai_bulk_done' === $notice ) {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( sprintf( __( 'KI-Durchlauf beendet: %1$d analysiert, %2$d übersprungen, %3$d Fehler.', 'content-taxonomy-overview' ), absint( $_GET['cto_analyzed'] ?? 0 ), absint( $_GET['cto_skipped'] ?? 0 ), absint( $_GET['cto_errors'] ?? 0 ) ) ) . '</p></div>';
 		} elseif ( 'rec_updated' === $notice ) {
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Empfehlungsstatus aktualisiert.', 'content-taxonomy-overview' ) . '</p></div>';
+			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Taxonomie übernommen und Analyse aktualisiert.', 'content-taxonomy-overview' ) . '</p></div>';
 		} elseif ( 'rec_failed' === $notice ) {
 			$error = isset( $_GET['cto_error'] ) ? sanitize_text_field( wp_unslash( $_GET['cto_error'] ) ) : __( 'Empfehlung konnte nicht übernommen werden. Prüfe Einstellungen und vorhandene Terms.', 'content-taxonomy-overview' );
 			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html( $error ) . '</p></div>';
@@ -659,6 +660,38 @@ class CTO_Admin {
 		return $ai_data;
 	}
 
+
+
+	/** Invalidate post, term and meta caches before reading fresh analysis data. */
+	private function invalidate_content_caches( $post_id ) {
+		$post = get_post( $post_id );
+		clean_post_cache( $post_id );
+		wp_cache_delete( $post_id, 'post_meta' );
+		if ( $post ) {
+			clean_object_term_cache( $post_id, $post->post_type );
+		}
+	}
+
+	/** Get fresh term column values from current WordPress term assignments. */
+	private function get_current_term_columns( $post_id ) {
+		$post = get_post( $post_id );
+		if ( ! $post ) { return array( 'categories' => '—', 'tags' => '—', 'custom_tax' => '—' ); }
+		clean_object_term_cache( $post_id, $post->post_type );
+		$categories = is_object_in_taxonomy( $post->post_type, 'category' ) ? wp_get_post_terms( $post_id, 'category', array( 'fields' => 'names' ) ) : array();
+		$tags       = is_object_in_taxonomy( $post->post_type, 'post_tag' ) ? wp_get_post_terms( $post_id, 'post_tag', array( 'fields' => 'names' ) ) : array();
+		$custom     = array();
+		foreach ( get_object_taxonomies( $post->post_type, 'objects' ) as $taxonomy => $taxonomy_object ) {
+			if ( in_array( $taxonomy, array( 'category', 'post_tag' ), true ) ) { continue; }
+			$terms = wp_get_post_terms( $post_id, $taxonomy, array( 'fields' => 'names' ) );
+			if ( ! is_wp_error( $terms ) && ! empty( $terms ) ) { $custom[] = $taxonomy_object->labels->name . ': ' . implode( ', ', $terms ); }
+		}
+		return array(
+			'categories' => ! is_wp_error( $categories ) && ! empty( $categories ) ? implode( ', ', $categories ) : '—',
+			'tags'       => ! is_wp_error( $tags ) && ! empty( $tags ) ? implode( ', ', $tags ) : '—',
+			'custom_tax' => ! empty( $custom ) ? implode( ' | ', $custom ) : '—',
+		);
+	}
+
 	/** Get current score values for AJAX UI updates.
 	 *
 	 * @param int $post_id Post ID.
@@ -668,6 +701,7 @@ class CTO_Admin {
 		$status = (string) get_post_meta( $post_id, '_cto_analysis_status', true );
 		$data   = get_post_meta( $post_id, '_cto_analysis_data', true );
 		$content = is_array( $data ) && isset( $data['content'] ) && is_array( $data['content'] ) ? $data['content'] : array();
+		$terms   = $this->get_current_term_columns( $post_id );
 		return array(
 			'tax_score'    => (string) get_post_meta( $post_id, '_cto_taxonomy_score', true ),
 			'struct_score' => (string) get_post_meta( $post_id, '_cto_structure_score', true ),
@@ -678,6 +712,9 @@ class CTO_Admin {
 			'internal'     => (string) ( $content['internal_links'] ?? '—' ),
 			'external'     => (string) ( $content['external_links'] ?? '—' ),
 			'h2'           => (string) ( $content['h2_count'] ?? '—' ),
+			'categories'   => $terms['categories'],
+			'tags'         => $terms['tags'],
+			'custom_tax'   => $terms['custom_tax'],
 		);
 	}
 
@@ -866,7 +903,9 @@ class CTO_Admin {
 		}
 		$result = wp_set_object_terms( $post_id, array( $term_id ), $taxonomy, true );
 		if ( is_wp_error( $result ) ) { return $result; }
+		$this->invalidate_content_caches( $post_id );
 		$this->analyzer->analyze_post( $post_id );
+		$this->invalidate_content_caches( $post_id );
 		CTO_AI_Service::log( 'taxonomy_applied', $post_id, $taxonomy . ':' . $term_name );
 		return true;
 	}

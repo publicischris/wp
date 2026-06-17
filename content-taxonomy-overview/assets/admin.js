@@ -27,14 +27,21 @@
 	}
 
 
+
+	function escapeHtml(value) {
+		return String(value).replace(/[&<>"]/g, function (char) {
+			return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[char]);
+		});
+	}
+
 	function updateScoreCells(postId, scores) {
 		if (!postId || !scores) { return; }
 		var row = document.querySelector('.cto-content-row[data-post-id="' + postId + '"]');
 		if (!row) { return; }
-		[['tax_score', scores.tax_score], ['struct_score', scores.struct_score], ['total_score', scores.total_score], ['words', scores.words], ['internal', scores.internal], ['external', scores.external], ['h2', scores.h2]].forEach(function(item){
+		[['tax_score', scores.tax_score], ['struct_score', scores.struct_score], ['total_score', scores.total_score], ['words', scores.words], ['internal', scores.internal], ['external', scores.external], ['h2', scores.h2], ['categories', scores.categories], ['tags', scores.tags], ['custom_tax', scores.custom_tax]].forEach(function(item){
 			var cell = row.querySelector('[data-cto-column="' + item[0] + '"]');
 			if (cell && typeof item[1] !== 'undefined') {
-				cell.innerHTML = item[0] === 'total_score' ? '<strong>' + String(item[1]) + '</strong>' : String(item[1]);
+				cell.innerHTML = item[0] === 'total_score' ? '<strong>' + escapeHtml(item[1]) + '</strong>' : escapeHtml(item[1]);
 			}
 		});
 		var noticeCell = row.querySelector('[data-cto-column="notice"]');

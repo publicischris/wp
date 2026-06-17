@@ -4,7 +4,7 @@ Tags: taxonomy, content audit, admin, seo, ai-ready
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: GPLv2 or later
 
 Rule-based WordPress admin overview for taxonomy and content-structure completeness of posts and pages with optional, controlled AI recommendations.
@@ -91,3 +91,10 @@ The plugin does not automatically modify content, insert links, assign terms, or
 - `_cto_analysis_data` speichert nach erneuter Analyse zusätzlich `scoring.taxonomy.criteria`, `scoring.structure.criteria` und `scoring.total` mit Status, Punkten und Maximalpunkten pro Kriterium.
 - Die Content-Analyse extrahiert sichtbaren Text aus Avada/Fusion-Shortcode-Strukturen, zählt Wörter per Unicode-RegEx, erkennt HTML- und Fusion-H2-Strukturen und speichert Diagnosewerte unter `content_extraction`.
 - Die Avada/Fusion-Textextraktion nutzt mehrere Strategien: Shortcode-Tag-Cleanup, gerenderten Content als Fallback und ausgewählte Builder-Metafelder. KI-Empfehlungen werden vor der Anzeige gegen aktuelle Terms abgeglichen; bereits vorhandene Terms erscheinen nicht mehr als Übernehmen-Aufgabe.
+
+== Changelog ==
+= 1.1.0 =
+* Verbesserte Aktualisierung von Kategorien, Tags und Custom Taxonomies nach manueller Reanalyse.
+* Frischeres Laden von Term-Daten nach Änderungen im Editor.
+* Konsistentere Admin-Tabellenanzeige nach Analyse und Taxonomie-Übernahme.
+* Vorbereitung/stabilere UX für Content Compass.
