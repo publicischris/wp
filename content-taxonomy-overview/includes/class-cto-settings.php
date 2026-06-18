@@ -30,10 +30,10 @@ class CTO_Settings {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( 'Insufficient permissions.', 'content-taxonomy-overview' ) );
 		}
-		$settings = CTO_AI_Service::get_settings();
-		$post_type_objects = function_exists( 'get_post_types' ) ? get_post_types( array( 'show_ui' => true ), 'objects' ) : array();
-		unset( $post_type_objects['attachment'] );
-		$enabled_post_types = isset( $settings['enabled_post_types'] ) && is_array( $settings['enabled_post_types'] ) ? $settings['enabled_post_types'] : array( 'post', 'page' );
+		$settings           = CTO_AI_Service::get_settings();
+		$post_type_objects  = CTO_Utils::available_post_type_objects();
+		$enabled_post_types = CTO_Utils::supported_post_types();
+		$criteria_labels    = CTO_Utils::criteria_definitions();
 		?>
 		<div class="wrap cto-wrap">
 			<h1><?php esc_html_e( 'Content Compass Einstellungen', 'content-taxonomy-overview' ); ?></h1>
@@ -46,7 +46,30 @@ class CTO_Settings {
 				<tr><th scope="row"><label for="cto_model">Modellname</label></th><td><input type="text" class="regular-text" id="cto_model" name="model" value="<?php echo esc_attr( $settings['model'] ); ?>" /></td></tr>
 				<tr><th scope="row">KI-Analyse aktivieren</th><td><label><input type="checkbox" name="enabled" value="1" <?php checked( $settings['enabled'], 1 ); ?> /> <?php esc_html_e( 'Aktivieren, sobald API-Daten gültig sind.', 'content-taxonomy-overview' ); ?></label></td></tr>
 
-				<tr><th scope="row"><?php esc_html_e( 'Zu analysierende Post Types', 'content-taxonomy-overview' ); ?></th><td class="cto-post-type-settings"><?php foreach ( $post_type_objects as $post_type => $post_type_object ) : $taxonomies = get_object_taxonomies( $post_type, 'objects' ); ?><label class="cto-post-type-option"><input type="checkbox" name="enabled_post_types[]" value="<?php echo esc_attr( $post_type ); ?>" <?php checked( in_array( $post_type, $enabled_post_types, true ) ); ?> /> <strong><?php echo esc_html( $post_type_object->labels->name ); ?></strong> <span class="description">(<?php echo esc_html( $post_type ); ?>)</span><br><span class="description"><?php echo esc_html__( 'Taxonomien:', 'content-taxonomy-overview' ); ?> <?php echo esc_html( ! empty( $taxonomies ) ? implode( ', ', wp_list_pluck( $taxonomies, 'label' ) ) : '—' ); ?></span></label><?php endforeach; ?><p class="description"><?php esc_html_e( 'Nur ausgewählte Post Types werden analysiert, gefiltert und an die KI übergeben.', 'content-taxonomy-overview' ); ?></p></td></tr>
+				<tr><th scope="row"><?php esc_html_e( 'Inhaltstypen', 'content-taxonomy-overview' ); ?></th><td class="cto-post-type-settings"><?php foreach ( $post_type_objects as $post_type => $post_type_object ) : $taxonomies = get_object_taxonomies( $post_type, 'objects' ); ?><label class="cto-post-type-option"><input type="checkbox" name="enabled_post_types[]" value="<?php echo esc_attr( $post_type ); ?>" <?php checked( in_array( $post_type, $enabled_post_types, true ) ); ?> /> <strong><?php echo esc_html( $post_type_object->labels->name ); ?></strong> <span class="description">(<?php echo esc_html( $post_type ); ?>)</span><br><span class="description"><?php echo esc_html__( 'Taxonomien:', 'content-taxonomy-overview' ); ?> <?php echo esc_html( ! empty( $taxonomies ) ? implode( ', ', wp_list_pluck( $taxonomies, 'label' ) ) : '—' ); ?></span></label><?php endforeach; ?><p class="description"><?php esc_html_e( 'Standardmäßig sind Beiträge und Seiten aktiv. Technische Inhaltstypen werden nicht angeboten.', 'content-taxonomy-overview' ); ?></p></td></tr>
+				<tr><th scope="row"><?php esc_html_e( 'Prüfkriterien pro Inhaltstyp', 'content-taxonomy-overview' ); ?></th><td>
+					<?php foreach ( $post_type_objects as $post_type => $post_type_object ) : $criteria_settings = CTO_Utils::get_post_type_criteria_settings( $post_type ); ?>
+						<details class="cto-criteria-settings" <?php echo in_array( $post_type, $enabled_post_types, true ) ? 'open' : ''; ?>>
+							<summary><strong><?php echo esc_html( $post_type_object->labels->name ); ?></strong> <span class="description">(<?php echo esc_html( $post_type ); ?>)</span></summary>
+							<table class="widefat striped">
+								<tbody>
+								<?php foreach ( $criteria_labels as $criterion => $label ) : ?>
+									<tr>
+										<td><?php echo esc_html( $label ); ?></td>
+										<td>
+											<select name="criteria_settings[<?php echo esc_attr( $post_type ); ?>][<?php echo esc_attr( $criterion ); ?>]">
+												<option value="check" <?php selected( $criteria_settings[ $criterion ], 'check' ); ?>><?php esc_html_e( 'prüfen', 'content-taxonomy-overview' ); ?></option>
+												<option value="not_relevant" <?php selected( $criteria_settings[ $criterion ], 'not_relevant' ); ?>><?php esc_html_e( 'nicht relevant', 'content-taxonomy-overview' ); ?></option>
+											</select>
+										</td>
+									</tr>
+								<?php endforeach; ?>
+								</tbody>
+							</table>
+						</details>
+					<?php endforeach; ?>
+					<p class="description"><?php esc_html_e( 'Nicht relevante Kriterien werden in den Score-Details als nicht relevant angezeigt und verschlechtern den normalisierten Score nicht.', 'content-taxonomy-overview' ); ?></p>
+				</td></tr>
 				<tr><th scope="row"><label for="cto_max_chars">Maximal analysierte Zeichen</label></th><td><input type="number" min="500" step="100" id="cto_max_chars" name="max_chars" value="<?php echo esc_attr( $settings['max_chars'] ); ?>" /></td></tr>
 				<tr><th scope="row">KI-Ergebnisse speichern</th><td><label><input type="checkbox" name="save_results" value="1" <?php checked( $settings['save_results'], 1 ); ?> /> <?php esc_html_e( 'KI-Ergebnisse in Post Meta speichern.', 'content-taxonomy-overview' ); ?></label></td></tr>
 				<tr><th scope="row">KI-Analyse nur manuell starten</th><td><label><input type="checkbox" name="manual_only" value="1" <?php checked( $settings['manual_only'], 1 ); ?> /> <?php esc_html_e( 'Keine automatische KI-Analyse ausführen.', 'content-taxonomy-overview' ); ?></label></td></tr>

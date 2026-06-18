@@ -4,7 +4,7 @@ Tags: taxonomy, content audit, admin, seo, ai-ready
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.1.1
+Stable tag: 1.2.0
 License: GPLv2 or later
 
 Rule-based WordPress admin overview for taxonomy and content-structure completeness of posts and pages with optional, controlled AI recommendations.
@@ -31,6 +31,8 @@ AI recommendations are shown in a collapsed detail panel below each analyzed row
 * KI-Ergebnisse speichern
 * KI-Analyse nur manuell starten
 * KI-Analyse automatisch nach regelbasierter Analyse starten
+* Inhaltstypen für Content Compass
+* Prüfkriterien pro Inhaltstyp: prüfen oder nicht relevant
 * Neue Kategorien/Tags aus KI-Empfehlungen erstellen erlauben
 * Neue Custom-Taxonomy-Terms aus KI-Empfehlungen erstellen erlauben
 * API Key entfernen
@@ -91,8 +93,19 @@ The plugin does not automatically modify content, insert links, assign terms, or
 - `_cto_analysis_data` speichert nach erneuter Analyse zusätzlich `scoring.taxonomy.criteria`, `scoring.structure.criteria` und `scoring.total` mit Status, Punkten und Maximalpunkten pro Kriterium.
 - Die Content-Analyse extrahiert sichtbaren Text aus Avada/Fusion-Shortcode-Strukturen, zählt Wörter per Unicode-RegEx, erkennt HTML- und Fusion-H2-Strukturen und speichert Diagnosewerte unter `content_extraction`.
 - Die Avada/Fusion-Textextraktion nutzt mehrere Strategien: Shortcode-Tag-Cleanup, gerenderten Content als Fallback und ausgewählte Builder-Metafelder. KI-Empfehlungen werden vor der Anzeige gegen aktuelle Terms abgeglichen; bereits vorhandene Terms erscheinen nicht mehr als Übernehmen-Aufgabe.
+- Aktive Inhaltstypen werden in `cto_enabled_post_types` gespeichert; Prüfkriterien pro Inhaltstyp in `cto_post_type_criteria_settings`.
+- Nicht relevante Kriterien werden in den Score-Details als nicht relevant angezeigt und aus der Normalisierung ausgeschlossen.
+- Suchintention nutzt den Meta Key `_cto_ai_search_intent`; Content Cluster nutzt `_cto_ai_content_cluster`.
 
 == Changelog ==
+= 1.2.0 =
+* Post-Type-Auswahl für Content Compass ergänzt.
+* Prüfkriterien pro Post Type konfigurierbar gemacht.
+* Score-Normalisierung nach relevanten Kriterien eingeführt.
+* Featured-Image-ALT-Text als neues Prüfkriterium ergänzt.
+* Suchintention-Filter auf Dropdown umgestellt.
+* Content-Cluster-Filter auf vorhandene Cluster umgestellt.
+
 = 1.1.1 =
 * Konsistente Score-Details nach Reanalyse.
 * Synchronisierung von Tabellenwerten und Score-Kriterien.

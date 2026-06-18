@@ -301,8 +301,8 @@ class CTO_Admin {
 		if ( 'analyzed' === $filters['ai_status'] ) { $meta_query[] = array( 'key' => '_cto_ai_status', 'value' => 'analyzed' ); }
 		if ( 'error' === $filters['ai_status'] ) { $meta_query[] = array( 'key' => '_cto_ai_status', 'value' => 'error' ); }
 		if ( 'not_analyzed' === $filters['ai_status'] ) { $meta_query[] = array( 'key' => '_cto_ai_status', 'compare' => 'NOT EXISTS' ); }
-		if ( '' !== $filters['intent'] ) { $meta_query[] = array( 'key' => '_cto_ai_search_intent', 'value' => $filters['intent'] ); }
-		if ( '' !== $filters['cluster'] ) { $meta_query[] = array( 'key' => '_cto_ai_content_cluster', 'value' => $filters['cluster'], 'compare' => 'LIKE' ); }
+		if ( '' !== $filters['intent'] && in_array( $filters['intent'], $this->search_intentions(), true ) ) { $meta_query[] = array( 'key' => '_cto_ai_search_intent', 'value' => $filters['intent'], 'compare' => '=' ); }
+		if ( '' !== $filters['cluster'] ) { $meta_query[] = array( 'key' => '_cto_ai_content_cluster', 'value' => $filters['cluster'], 'compare' => '=' ); }
 		if ( in_array( $filters['rec_status'], array( 'open', 'accepted', 'ignored' ), true ) ) { $meta_query[] = array( 'key' => '_cto_ai_recommendation_status', 'value' => $filters['rec_status'], 'compare' => 'LIKE' ); }
 		if ( ! empty( $meta_query ) ) { $args['meta_query'] = $meta_query; } // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
 
@@ -314,6 +314,7 @@ class CTO_Admin {
 	 * @param array $filters Filters.
 	 */
 	private function render_filters( $filters ) {
+		$clusters = $this->get_available_content_clusters();
 		?>
 		<select name="cto_post_type"><option value=""><?php esc_html_e( 'Alle Post Types', 'content-taxonomy-overview' ); ?></option><?php foreach ( CTO_Utils::supported_post_type_objects() as $post_type => $post_type_object ) : ?><option value="<?php echo esc_attr( $post_type ); ?>" <?php selected( $filters['post_type'], $post_type ); ?>><?php echo esc_html( $post_type_object->labels->name ); ?></option><?php endforeach; ?></select>
 		<select name="cto_status"><option value=""><?php esc_html_e( 'Alle Status', 'content-taxonomy-overview' ); ?></option><option value="publish" <?php selected( $filters['status'], 'publish' ); ?>>Published</option><option value="draft" <?php selected( $filters['status'], 'draft' ); ?>>Draft</option></select>
@@ -324,11 +325,47 @@ class CTO_Admin {
 		<select name="per_page"><option value="20" <?php selected( $filters['per_page'], 20 ); ?>>20</option><option value="50" <?php selected( $filters['per_page'], 50 ); ?>>50</option><option value="100" <?php selected( $filters['per_page'], 100 ); ?>>100</option></select>
 		<select name="cto_ai_status"><option value=""><?php esc_html_e( 'KI-Status alle', 'content-taxonomy-overview' ); ?></option><option value="not_analyzed" <?php selected( $filters['ai_status'], 'not_analyzed' ); ?>>Nicht analysiert</option><option value="analyzed" <?php selected( $filters['ai_status'], 'analyzed' ); ?>>Analysiert</option><option value="error" <?php selected( $filters['ai_status'], 'error' ); ?>>Fehler</option></select>
 		<select name="cto_rec_status"><option value=""><?php esc_html_e( 'Empfehlungen alle', 'content-taxonomy-overview' ); ?></option><option value="open" <?php selected( $filters['rec_status'], 'open' ); ?>>Offen</option><option value="accepted" <?php selected( $filters['rec_status'], 'accepted' ); ?>>Akzeptiert</option><option value="ignored" <?php selected( $filters['rec_status'], 'ignored' ); ?>>Ignoriert</option></select>
-		<input type="text" name="cto_intent" value="<?php echo esc_attr( $filters['intent'] ); ?>" placeholder="Suchintention" />
-		<input type="text" name="cto_cluster" value="<?php echo esc_attr( $filters['cluster'] ); ?>" placeholder="Content Cluster" />
+		<select name="cto_intent"><option value=""><?php esc_html_e( 'Alle Suchintentionen', 'content-taxonomy-overview' ); ?></option><?php foreach ( $this->search_intentions() as $intent ) : ?><option value="<?php echo esc_attr( $intent ); ?>" <?php selected( $filters['intent'], $intent ); ?>><?php echo esc_html( $intent ); ?></option><?php endforeach; ?></select>
+		<select name="cto_cluster" <?php disabled( empty( $clusters ) ); ?>><option value=""><?php echo empty( $clusters ) ? esc_html__( 'Keine Cluster vorhanden', 'content-taxonomy-overview' ) : esc_html__( 'Alle Content Cluster', 'content-taxonomy-overview' ); ?></option><?php foreach ( $clusters as $cluster ) : ?><option value="<?php echo esc_attr( $cluster ); ?>" <?php selected( $filters['cluster'], $cluster ); ?>><?php echo esc_html( $cluster ); ?></option><?php endforeach; ?></select>
 		<input type="hidden" name="paged" value="1" />
 		<?php submit_button( __( 'Filtern', 'content-taxonomy-overview' ), 'secondary', 'submit', false ); ?>
 		<?php
+	}
+
+	/** Get supported search intentions for filter dropdown.
+	 *
+	 * @return string[]
+	 */
+	private function search_intentions() {
+		return array( 'informational', 'commercial', 'transactional', 'navigational', 'mixed', 'unknown' );
+	}
+
+	/** Get existing content clusters for enabled post types.
+	 *
+	 * @return string[]
+	 */
+	private function get_available_content_clusters() {
+		global $wpdb;
+		$post_types = CTO_Utils::supported_post_types();
+		if ( empty( $post_types ) ) {
+			return array();
+		}
+
+		$placeholders = implode( ',', array_fill( 0, count( $post_types ), '%s' ) );
+		$sql = "
+			SELECT DISTINCT pm.meta_value
+			FROM {$wpdb->postmeta} pm
+			INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+			WHERE pm.meta_key = %s
+			AND pm.meta_value <> ''
+			AND p.post_type IN ($placeholders)
+			AND p.post_status IN ('publish','draft')
+			ORDER BY pm.meta_value ASC
+			LIMIT 200
+		";
+		$values = $wpdb->get_col( $wpdb->prepare( $sql, array_merge( array( '_cto_ai_content_cluster' ), $post_types ) ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+
+		return array_values( array_filter( array_map( 'sanitize_text_field', (array) $values ) ) );
 	}
 
 
@@ -342,8 +379,8 @@ class CTO_Admin {
 			<summary><strong><?php esc_html_e( 'Wie wird der Score berechnet?', 'content-taxonomy-overview' ); ?></strong></summary>
 			<div class="cto-score-explanation-grid">
 				<div><h3><?php esc_html_e( 'Taxonomie-Score', 'content-taxonomy-overview' ); ?></h3><ul><li><?php esc_html_e( 'Kategorie vorhanden: +30 Punkte', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( 'Mindestens ein Tag vorhanden: +20 Punkte', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( 'Mehr als eine Taxonomie-Zuordnung vorhanden: +20 Punkte', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( 'Keine Kategorie „Uncategorized“ bzw. „Allgemein“: +20 Punkte', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( 'Mindestens eine Custom Taxonomy vorhanden, falls relevant: +10 Punkte', 'content-taxonomy-overview' ); ?></li></ul></div>
-				<div><h3><?php esc_html_e( 'Struktur-Score', 'content-taxonomy-overview' ); ?></h3><ul><li><?php esc_html_e( 'Wortanzahl über 500 Wörter: +25 Punkte', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( 'Mindestens eine H2-Überschrift vorhanden: +20 Punkte', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( 'Featured Image vorhanden: +20 Punkte', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( 'Mindestens ein interner Link vorhanden: +20 Punkte', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( 'Meta Description vorhanden, falls Yoast SEO oder Rank Math erkannt wird: +15 Punkte', 'content-taxonomy-overview' ); ?></li></ul></div>
-				<div><h3><?php esc_html_e( 'Gesamtbewertung', 'content-taxonomy-overview' ); ?></h3><p><?php esc_html_e( 'Der Gesamt-Score ist der Durchschnitt aus Taxonomie-Score und Struktur-Score.', 'content-taxonomy-overview' ); ?></p><ul><li><?php esc_html_e( '80–100: OK', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( '50–79: Prüfen', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( '0–49: Unvollständig', 'content-taxonomy-overview' ); ?></li></ul></div>
+				<div><h3><?php esc_html_e( 'Struktur-Score', 'content-taxonomy-overview' ); ?></h3><ul><li><?php esc_html_e( 'Wortanzahl über 500 Wörter: +25 Punkte', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( 'Mindestens eine H2-Überschrift vorhanden: +20 Punkte', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( 'Featured Image vorhanden: +20 Punkte', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( 'Mindestens ein interner Link vorhanden: +20 Punkte', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( 'Meta Description vorhanden, falls Yoast SEO oder Rank Math erkannt wird: +15 Punkte', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( 'Featured Image ALT-Text vorhanden: +10 Punkte', 'content-taxonomy-overview' ); ?></li></ul></div>
+				<div><h3><?php esc_html_e( 'Gesamtbewertung', 'content-taxonomy-overview' ); ?></h3><p><?php esc_html_e( 'Kriterien können pro Inhaltstyp als prüfen oder nicht relevant konfiguriert werden. Nicht relevante Kriterien verschlechtern den Score nicht; die Punkte werden auf die maximal relevanten Punkte normalisiert.', 'content-taxonomy-overview' ); ?></p><p><?php esc_html_e( 'Suchintention beschreibt die vermutete Absicht des Nutzers; Content Cluster bezeichnet die thematische Gruppierung des Inhalts.', 'content-taxonomy-overview' ); ?></p><ul><li><?php esc_html_e( '80–100: OK', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( '50–79: Prüfen', 'content-taxonomy-overview' ); ?></li><li><?php esc_html_e( '0–49: Unvollständig', 'content-taxonomy-overview' ); ?></li></ul></div>
 			</div>
 		</details>
 		<?php
@@ -541,8 +578,8 @@ class CTO_Admin {
 		<div class="cto-score-details">
 			<h4><?php esc_html_e( 'Score-Details', 'content-taxonomy-overview' ); ?></h4>
 			<div class="cto-score-summary">
-				<span><?php echo esc_html( sprintf( __( 'Taxonomie-Score: %s / 100', 'content-taxonomy-overview' ), get_post_meta( $post->ID, '_cto_taxonomy_score', true ) ) ); ?></span>
-				<span><?php echo esc_html( sprintf( __( 'Struktur-Score: %s / 100', 'content-taxonomy-overview' ), get_post_meta( $post->ID, '_cto_structure_score', true ) ) ); ?></span>
+				<span><?php echo esc_html( array_key_exists( 'relevant', $scoring['taxonomy'] ?? array() ) && empty( $scoring['taxonomy']['relevant'] ) ? __( 'Taxonomie-Score: nicht relevant', 'content-taxonomy-overview' ) : sprintf( __( 'Taxonomie-Score: %s / 100', 'content-taxonomy-overview' ), get_post_meta( $post->ID, '_cto_taxonomy_score', true ) ) ); ?></span>
+				<span><?php echo esc_html( array_key_exists( 'relevant', $scoring['structure'] ?? array() ) && empty( $scoring['structure']['relevant'] ) ? __( 'Struktur-Score: nicht relevant', 'content-taxonomy-overview' ) : sprintf( __( 'Struktur-Score: %s / 100', 'content-taxonomy-overview' ), get_post_meta( $post->ID, '_cto_structure_score', true ) ) ); ?></span>
 				<span><?php echo esc_html( sprintf( __( 'Gesamt-Score: %s / 100', 'content-taxonomy-overview' ), get_post_meta( $post->ID, '_cto_total_score', true ) ) ); ?></span>
 				<span><?php echo esc_html( sprintf( __( 'Status: %s', 'content-taxonomy-overview' ), '' !== $status ? $status : '—' ) ); ?></span>
 				<span><?php echo esc_html( sprintf( __( 'Details-Quelle: %s', 'content-taxonomy-overview' ), $details_source ) ); ?></span>

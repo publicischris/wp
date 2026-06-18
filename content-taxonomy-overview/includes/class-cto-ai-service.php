@@ -62,12 +62,26 @@ class CTO_AI_Service {
 			$api_key = '';
 		}
 
-		$available_post_types = function_exists( 'get_post_types' ) ? get_post_types( array( 'show_ui' => true ), 'names' ) : array( 'post' => 'post', 'page' => 'page' );
-		unset( $available_post_types['attachment'] );
+		$available_post_types = array_keys( CTO_Utils::available_post_type_objects() );
 		$enabled_post_types = isset( $settings['enabled_post_types'] ) && is_array( $settings['enabled_post_types'] ) ? array_map( 'sanitize_key', wp_unslash( $settings['enabled_post_types'] ) ) : (array) $current['enabled_post_types'];
-		$enabled_post_types = array_values( array_intersect( $enabled_post_types, array_values( $available_post_types ) ) );
+		$enabled_post_types = array_values( array_intersect( $enabled_post_types, $available_post_types ) );
 		if ( empty( $enabled_post_types ) ) {
 			$enabled_post_types = array( 'post', 'page' );
+		}
+		$enabled_post_types = array_values( array_intersect( $enabled_post_types, $available_post_types ) );
+		if ( empty( $enabled_post_types ) ) {
+			$enabled_post_types = array_values( array_intersect( array( 'post', 'page' ), $available_post_types ) );
+		}
+
+		$criteria_settings = array();
+		$posted_criteria   = isset( $settings['criteria_settings'] ) && is_array( $settings['criteria_settings'] ) ? wp_unslash( $settings['criteria_settings'] ) : array();
+		foreach ( $available_post_types as $post_type ) {
+			$post_type_settings = isset( $posted_criteria[ $post_type ] ) && is_array( $posted_criteria[ $post_type ] ) ? $posted_criteria[ $post_type ] : array();
+			$defaults           = CTO_Utils::default_criteria_for_post_type( $post_type );
+			foreach ( CTO_Utils::criteria_definitions() as $criterion => $label ) {
+				$value = isset( $post_type_settings[ $criterion ] ) ? sanitize_key( $post_type_settings[ $criterion ] ) : $defaults[ $criterion ];
+				$criteria_settings[ $post_type ][ $criterion ] = in_array( $value, array( 'check', 'not_relevant' ), true ) ? $value : $defaults[ $criterion ];
+			}
 		}
 
 		$next = array(
@@ -90,6 +104,8 @@ class CTO_AI_Service {
 		}
 
 		update_option( self::OPTION_KEY, $next, false );
+		update_option( CTO_Utils::ENABLED_POST_TYPES_OPTION, $enabled_post_types, false );
+		update_option( CTO_Utils::CRITERIA_SETTINGS_OPTION, $criteria_settings, false );
 		if ( ! empty( $settings['remove_api_key'] ) ) {
 			self::log( 'api_key_removed', 0, 'API key removed.' );
 		}

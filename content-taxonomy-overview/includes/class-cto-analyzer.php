@@ -31,23 +31,32 @@ class CTO_Analyzer {
 		$taxonomy_data = $this->get_taxonomy_data( $post );
 		$content_data  = $this->get_content_data( $post );
 
-		$taxonomy_score  = $this->calculate_taxonomy_score( $taxonomy_data );
-		$structure_score = $this->calculate_structure_score( $content_data );
-		$total_score     = (int) round( ( $taxonomy_score + $structure_score ) / 2 );
+		$taxonomy_scoring  = $this->build_taxonomy_criteria( $taxonomy_data );
+		$structure_scoring = $this->build_structure_criteria( $content_data );
+		$taxonomy_score    = (int) $taxonomy_scoring['score'];
+		$structure_score   = (int) $structure_scoring['score'];
+		$relevant_scores   = array();
+		if ( ! empty( $taxonomy_scoring['relevant'] ) ) {
+			$relevant_scores[] = $taxonomy_score;
+		}
+		if ( ! empty( $structure_scoring['relevant'] ) ) {
+			$relevant_scores[] = $structure_score;
+		}
+		$total_score     = ! empty( $relevant_scores ) ? (int) round( array_sum( $relevant_scores ) / count( $relevant_scores ) ) : 100;
 		$status          = CTO_Utils::status_from_score( $total_score );
 		$analysis_data   = array(
 			'post_id'              => $post_id,
 			'post_type'            => $post->post_type,
 			'post_status'          => $post->post_status,
-			'analysis_schema_version' => '1.1.1',
+			'analysis_schema_version' => '1.2.0',
 			'taxonomies'           => $taxonomy_data,
 			'content'              => $content_data,
 			'content_extraction'   => isset( $content_data['content_extraction'] ) ? $content_data['content_extraction'] : array(),
 			'scoring'              => array(
-				'taxonomy'  => $this->build_taxonomy_criteria( $taxonomy_data ),
-				'structure' => $this->build_structure_criteria( $content_data ),
+				'taxonomy'  => $taxonomy_scoring,
+				'structure' => $structure_scoring,
 				'total'     => array(
-					'calculation' => 'average_taxonomy_structure',
+					'calculation' => 'average_relevant_taxonomy_structure',
 					'score'       => $total_score,
 					'max_points'  => 100,
 					'status'      => $status,
@@ -105,6 +114,7 @@ class CTO_Analyzer {
 		$assignments = array();
 		$total_terms = 0;
 		$has_custom  = false;
+		$criteria    = CTO_Utils::get_post_type_criteria_settings( $post->post_type );
 
 		foreach ( $taxonomies as $taxonomy => $taxonomy_object ) {
 			$terms = get_the_terms( $post, $taxonomy );
@@ -146,6 +156,7 @@ class CTO_Analyzer {
 			'has_multiple_taxonomy_terms' => $total_terms > 1,
 			'has_no_uncategorized'      => ! $this->has_default_category_name( $category_terms ),
 			'has_custom_taxonomy'       => $has_custom,
+			'criteria_settings'         => $criteria,
 		);
 	}
 
@@ -156,59 +167,92 @@ class CTO_Analyzer {
 	 * @return int
 	 */
 	private function calculate_taxonomy_score( $data ) {
-		$score = 0;
-		$score += empty( $data['category_taxonomy_exists'] ) || ! empty( $data['has_category'] ) ? 30 : 0;
-		$score += empty( $data['tag_taxonomy_exists'] ) || ! empty( $data['has_tag'] ) ? 20 : 0;
-		$score += ( (int) $data['total_terms'] > 1 ) ? 20 : 0;
-		$score += empty( $data['category_taxonomy_exists'] ) || empty( $data['has_default_category'] ) ? 20 : 0;
-		$score += ( ! empty( $data['custom_taxonomies_exist'] ) && ! empty( $data['has_custom_taxonomy_term'] ) ) ? 10 : 0;
-
-		return min( 100, $score );
+		return (int) $this->build_taxonomy_criteria( $data )['score'];
 	}
 
 
 
-	/** Build transparent taxonomy criteria details without changing scoring logic.
+	/** Build transparent taxonomy criteria details and normalized score.
 	 *
 	 * @param array $data Taxonomy data.
 	 * @return array
 	 */
 	private function build_taxonomy_criteria( $data ) {
-		$category_relevant = ! empty( $data['category_taxonomy_exists'] );
-		$tag_relevant      = ! empty( $data['tag_taxonomy_exists'] );
-		$custom_relevant   = ! empty( $data['custom_taxonomies_exist'] );
+		$criteria_settings = isset( $data['criteria_settings'] ) && is_array( $data['criteria_settings'] ) ? $data['criteria_settings'] : CTO_Utils::default_criteria_for_post_type( '' );
+		$category_relevant = 'check' === ( $criteria_settings['category'] ?? 'check' ) && ! empty( $data['category_taxonomy_exists'] );
+		$tag_relevant      = 'check' === ( $criteria_settings['tag'] ?? 'check' ) && ! empty( $data['tag_taxonomy_exists'] );
+		$custom_relevant   = 'check' === ( $criteria_settings['custom_taxonomy'] ?? 'check' ) && ! empty( $data['custom_taxonomies_exist'] );
+		$criteria          = array(
+			'category_present'       => array( 'label' => __( 'Kategorie vorhanden', 'content-taxonomy-overview' ), 'met' => ! empty( $data['has_category'] ), 'relevant' => $category_relevant, 'points' => ( $category_relevant && ! empty( $data['has_category'] ) ) ? 30 : 0, 'max_points' => 30 ),
+			'tag_present'            => array( 'label' => __( 'Tag vorhanden', 'content-taxonomy-overview' ), 'met' => ! empty( $data['has_tag'] ), 'relevant' => $tag_relevant, 'points' => ( $tag_relevant && ! empty( $data['has_tag'] ) ) ? 20 : 0, 'max_points' => 20 ),
+			'multiple_assignments'    => array( 'label' => __( 'Mehr als eine Taxonomie-Zuordnung', 'content-taxonomy-overview' ), 'met' => (int) $data['total_terms'] > 1, 'relevant' => $category_relevant || $tag_relevant || $custom_relevant, 'points' => ( ( $category_relevant || $tag_relevant || $custom_relevant ) && (int) $data['total_terms'] > 1 ) ? 20 : 0, 'max_points' => 20 ),
+			'no_default_category'     => array( 'label' => __( 'Keine Uncategorized/Allgemein-Kategorie', 'content-taxonomy-overview' ), 'met' => empty( $data['has_default_category'] ), 'relevant' => $category_relevant, 'points' => ( $category_relevant && empty( $data['has_default_category'] ) ) ? 20 : 0, 'max_points' => 20 ),
+			'custom_taxonomy_present' => array( 'label' => __( 'Custom Taxonomy vorhanden', 'content-taxonomy-overview' ), 'met' => ! empty( $data['has_custom_taxonomy_term'] ), 'relevant' => $custom_relevant, 'points' => ( $custom_relevant && ! empty( $data['has_custom_taxonomy_term'] ) ) ? 10 : 0, 'max_points' => 10 ),
+		);
+		$normalized = $this->normalize_criteria_score( $criteria );
 
 		return array(
-			'score'      => $this->calculate_taxonomy_score( $data ),
+			'score'      => $normalized['score'],
 			'max_points' => 100,
-			'criteria'   => array(
-				'category_present'       => array( 'label' => __( 'Kategorie vorhanden', 'content-taxonomy-overview' ), 'met' => ! empty( $data['has_category'] ), 'relevant' => $category_relevant, 'points' => ( ! $category_relevant || ! empty( $data['has_category'] ) ) ? 30 : 0, 'max_points' => 30 ),
-				'tag_present'            => array( 'label' => __( 'Tag vorhanden', 'content-taxonomy-overview' ), 'met' => ! empty( $data['has_tag'] ), 'relevant' => $tag_relevant, 'points' => ( ! $tag_relevant || ! empty( $data['has_tag'] ) ) ? 20 : 0, 'max_points' => 20 ),
-				'multiple_assignments'    => array( 'label' => __( 'Mehr als eine Taxonomie-Zuordnung', 'content-taxonomy-overview' ), 'met' => (int) $data['total_terms'] > 1, 'relevant' => true, 'points' => ( (int) $data['total_terms'] > 1 ) ? 20 : 0, 'max_points' => 20 ),
-				'no_default_category'     => array( 'label' => __( 'Keine Uncategorized/Allgemein-Kategorie', 'content-taxonomy-overview' ), 'met' => empty( $data['has_default_category'] ), 'relevant' => $category_relevant, 'points' => ( ! $category_relevant || empty( $data['has_default_category'] ) ) ? 20 : 0, 'max_points' => 20 ),
-				'custom_taxonomy_present' => array( 'label' => __( 'Custom Taxonomy vorhanden', 'content-taxonomy-overview' ), 'met' => ! empty( $data['has_custom_taxonomy_term'] ), 'relevant' => $custom_relevant, 'points' => ( $custom_relevant && ! empty( $data['has_custom_taxonomy_term'] ) ) ? 10 : 0, 'max_points' => 10 ),
-			),
+			'raw_points' => $normalized['points'],
+			'relevant_max_points' => $normalized['max_points'],
+			'relevant'   => $normalized['relevant'],
+			'criteria'   => $criteria,
 		);
 	}
 
-	/** Build transparent structure criteria details without changing scoring logic.
+	/** Build transparent structure criteria details and normalized score.
 	 *
 	 * @param array $data Content structure data.
 	 * @return array
 	 */
 	private function build_structure_criteria( $data ) {
-		$meta_relevant = ! empty( $data['seo_plugin_detected'] );
+		$criteria_settings = isset( $data['criteria_settings'] ) && is_array( $data['criteria_settings'] ) ? $data['criteria_settings'] : CTO_Utils::default_criteria_for_post_type( '' );
+		$meta_relevant = 'check' === ( $criteria_settings['meta_description'] ?? 'check' ) && ! empty( $data['seo_plugin_detected'] );
+		$featured_relevant = 'check' === ( $criteria_settings['featured_image'] ?? 'check' );
+		$alt_relevant = 'check' === ( $criteria_settings['featured_image_alt'] ?? 'check' ) && ( $featured_relevant || ! empty( $data['featured_image'] ) );
+		$criteria = array(
+			'word_count_over_500'     => array( 'label' => __( 'Mehr als 500 Wörter', 'content-taxonomy-overview' ), 'met' => (int) $data['word_count'] > 500, 'relevant' => 'check' === ( $criteria_settings['word_count'] ?? 'check' ), 'points' => ( 'check' === ( $criteria_settings['word_count'] ?? 'check' ) && (int) $data['word_count'] > 500 ) ? 25 : 0, 'max_points' => 25 ),
+			'h2_present'              => array( 'label' => __( 'H2 vorhanden', 'content-taxonomy-overview' ), 'met' => (int) $data['h2_count'] > 0, 'relevant' => 'check' === ( $criteria_settings['h2'] ?? 'check' ), 'points' => ( 'check' === ( $criteria_settings['h2'] ?? 'check' ) && (int) $data['h2_count'] > 0 ) ? 20 : 0, 'max_points' => 20 ),
+			'featured_image_present'  => array( 'label' => __( 'Featured Image vorhanden', 'content-taxonomy-overview' ), 'met' => ! empty( $data['featured_image'] ), 'relevant' => $featured_relevant, 'points' => ( $featured_relevant && ! empty( $data['featured_image'] ) ) ? 20 : 0, 'max_points' => 20 ),
+			'internal_link_present'   => array( 'label' => __( 'Interner Link vorhanden', 'content-taxonomy-overview' ), 'met' => (int) $data['internal_links'] > 0, 'relevant' => 'check' === ( $criteria_settings['internal_link'] ?? 'check' ), 'points' => ( 'check' === ( $criteria_settings['internal_link'] ?? 'check' ) && (int) $data['internal_links'] > 0 ) ? 20 : 0, 'max_points' => 20 ),
+			'meta_description_present'=> array( 'label' => __( 'Meta Description vorhanden', 'content-taxonomy-overview' ), 'met' => ! empty( $data['meta_description_present'] ), 'relevant' => $meta_relevant, 'points' => ( $meta_relevant && ! empty( $data['meta_description_present'] ) ) ? 15 : 0, 'max_points' => 15 ),
+			'featured_image_alt_present' => array( 'label' => __( 'Featured Image ALT-Text vorhanden', 'content-taxonomy-overview' ), 'met' => ! empty( $data['featured_image_alt'] ), 'relevant' => $alt_relevant, 'points' => ( $alt_relevant && ! empty( $data['featured_image_alt'] ) ) ? 10 : 0, 'max_points' => 10 ),
+		);
+		$normalized = $this->normalize_criteria_score( $criteria );
 
 		return array(
-			'score'      => $this->calculate_structure_score( $data ),
+			'score'      => $normalized['score'],
 			'max_points' => 100,
-			'criteria'   => array(
-				'word_count_over_500'     => array( 'label' => __( 'Mehr als 500 Wörter', 'content-taxonomy-overview' ), 'met' => (int) $data['word_count'] > 500, 'relevant' => true, 'points' => ( (int) $data['word_count'] > 500 ) ? 25 : 0, 'max_points' => 25 ),
-				'h2_present'              => array( 'label' => __( 'H2 vorhanden', 'content-taxonomy-overview' ), 'met' => (int) $data['h2_count'] > 0, 'relevant' => true, 'points' => ( (int) $data['h2_count'] > 0 ) ? 20 : 0, 'max_points' => 20 ),
-				'featured_image_present'  => array( 'label' => __( 'Featured Image vorhanden', 'content-taxonomy-overview' ), 'met' => ! empty( $data['featured_image'] ), 'relevant' => true, 'points' => ! empty( $data['featured_image'] ) ? 20 : 0, 'max_points' => 20 ),
-				'internal_link_present'   => array( 'label' => __( 'Interner Link vorhanden', 'content-taxonomy-overview' ), 'met' => (int) $data['internal_links'] > 0, 'relevant' => true, 'points' => ( (int) $data['internal_links'] > 0 ) ? 20 : 0, 'max_points' => 20 ),
-				'meta_description_present'=> array( 'label' => __( 'Meta Description vorhanden', 'content-taxonomy-overview' ), 'met' => ! empty( $data['meta_description_present'] ), 'relevant' => $meta_relevant, 'points' => ( $meta_relevant && ! empty( $data['meta_description_present'] ) ) ? 15 : 0, 'max_points' => 15 ),
-			),
+			'raw_points' => $normalized['points'],
+			'relevant_max_points' => $normalized['max_points'],
+			'relevant'   => $normalized['relevant'],
+			'criteria'   => $criteria,
+		);
+	}
+
+	/**
+	 * Normalize relevant criteria to a 0-100 score.
+	 *
+	 * @param array $criteria Criteria.
+	 * @return array
+	 */
+	private function normalize_criteria_score( $criteria ) {
+		$points = 0;
+		$max    = 0;
+		foreach ( $criteria as $criterion ) {
+			if ( empty( $criterion['relevant'] ) ) {
+				continue;
+			}
+			$points += (int) $criterion['points'];
+			$max    += (int) $criterion['max_points'];
+		}
+
+		return array(
+			'points'     => $points,
+			'max_points' => $max,
+			'relevant'   => $max > 0,
+			'score'      => $max > 0 ? min( 100, (int) round( ( $points / $max ) * 100 ) ) : 100,
 		);
 	}
 
@@ -223,6 +267,9 @@ class CTO_Analyzer {
 		$links          = $this->count_links( $extracted['link_source'] );
 		$meta           = $this->get_seo_meta_description( $post->ID );
 		$featured_image = has_post_thumbnail( $post->ID );
+		$thumbnail_id   = $featured_image ? get_post_thumbnail_id( $post->ID ) : 0;
+		$alt_text       = $thumbnail_id ? trim( (string) get_post_meta( $thumbnail_id, '_wp_attachment_image_alt', true ) ) : '';
+		$criteria       = CTO_Utils::get_post_type_criteria_settings( $post->post_type );
 
 		$extracted['diagnostics']['links_detected']          = (int) $links['total'];
 		$extracted['diagnostics']['internal_links_detected'] = (int) $links['internal'];
@@ -234,6 +281,7 @@ class CTO_Analyzer {
 			'internal_links'            => (int) $links['internal'],
 			'external_links'            => (int) $links['external'],
 			'featured_image'            => (bool) $featured_image,
+			'featured_image_alt'        => '' !== $alt_text,
 			'seo_plugin_detected'       => (bool) $meta['plugin_detected'],
 			'meta_description_present'  => (bool) $meta['description_present'],
 			'internal_links_count'      => (int) $links['internal'],
@@ -241,8 +289,10 @@ class CTO_Analyzer {
 			'has_more_than_500_words'   => (int) $extracted['word_count'] > 500,
 			'has_h2'                   => (int) $extracted['h2_count'] > 0,
 			'has_featured_image'       => (bool) $featured_image,
+			'has_featured_image_alt'   => '' !== $alt_text,
 			'has_internal_link'        => (int) $links['internal'] > 0,
 			'has_meta_description'     => (bool) $meta['description_present'],
+			'criteria_settings'        => $criteria,
 			'content_extraction'        => $extracted['diagnostics'],
 		);
 	}
@@ -410,14 +460,7 @@ class CTO_Analyzer {
 	 * @return int
 	 */
 	private function calculate_structure_score( $data ) {
-		$score = 0;
-		$score += ( (int) $data['word_count'] > 500 ) ? 25 : 0;
-		$score += ( (int) $data['h2_count'] > 0 ) ? 20 : 0;
-		$score += ! empty( $data['featured_image'] ) ? 20 : 0;
-		$score += ( (int) $data['internal_links'] > 0 ) ? 20 : 0;
-		$score += ( ! empty( $data['seo_plugin_detected'] ) && ! empty( $data['meta_description_present'] ) ) ? 15 : 0;
-
-		return min( 100, $score );
+		return (int) $this->build_structure_criteria( $data )['score'];
 	}
 
 	/**
