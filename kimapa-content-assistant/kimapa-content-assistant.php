@@ -1,0 +1,45 @@
+<?php
+/**
+ * Plugin Name: Content Assistant
+ * Description: Editorial content analysis, AI prompt generation and manual social-media performance documentation.
+ * Version: 0.1.0
+ * Author: Content Assistant
+ * Text Domain: kimapa-content-assistant
+ * Domain Path: /languages
+ * Requires at least: 6.0
+ * Requires PHP: 7.4
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+define('KIMAPA_CA_VERSION', '0.1.0');
+define('KIMAPA_CA_FILE', __FILE__);
+define('KIMAPA_CA_DIR', plugin_dir_path(__FILE__));
+define('KIMAPA_CA_URL', plugin_dir_url(__FILE__));
+
+require_once KIMAPA_CA_DIR . 'includes/class-config.php';
+require_once KIMAPA_CA_DIR . 'includes/class-meta.php';
+require_once KIMAPA_CA_DIR . 'includes/class-content-extractor.php';
+require_once KIMAPA_CA_DIR . 'includes/class-language-resolver.php';
+require_once KIMAPA_CA_DIR . 'includes/class-analyzer.php';
+require_once KIMAPA_CA_DIR . 'includes/class-prompt-builder.php';
+require_once KIMAPA_CA_DIR . 'includes/class-publications.php';
+require_once KIMAPA_CA_DIR . 'includes/class-admin.php';
+require_once KIMAPA_CA_DIR . 'includes/class-plugin.php';
+
+register_activation_hook(__FILE__, static function () {
+    KiMaPa_Content_Assistant\Config::activate(KIMAPA_CA_DIR . 'config/default-config.json');
+    KiMaPa_Content_Assistant\Publications::activate();
+});
+
+add_action('plugins_loaded', static function () {
+    load_plugin_textdomain(
+        'kimapa-content-assistant',
+        false,
+        dirname(plugin_basename(__FILE__)) . '/languages'
+    );
+
+    KiMaPa_Content_Assistant\Plugin::instance()->init();
+});
