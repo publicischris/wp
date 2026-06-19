@@ -1,0 +1,242 @@
+{
+  "version": 1,
+  "tone": [
+    "familiennah und warm",
+    "praktisch und alltagstauglich",
+    "verlässlich und redaktionell sorgfältig",
+    "positiv, aber nicht übertrieben werblich",
+    "klar, lokal und hilfreich für Eltern"
+  ],
+  "avoid_phrases": [
+    "Das müsst ihr unbedingt gesehen haben",
+    "garantiert perfekt",
+    "sensationell",
+    "einzigartig für alle Familien"
+  ],
+  "wordpress_checks": {
+    "min_word_count": 450,
+    "featured_image_min_width": 1200,
+    "featured_image_min_height": 800,
+    "stale_after_days": 365,
+    "relative_time_terms": [
+      "aktuell",
+      "derzeit",
+      "momentan",
+      "bald",
+      "demnächst",
+      "dieses Jahr",
+      "letztes Jahr",
+      "zur Zeit",
+      "in den Sommerferien",
+      "im Herbst",
+      "im Winter",
+      "im Frühjahr",
+      "im Sommer"
+    ]
+  },
+  "content_consistency_checks": {
+    "target_group": {
+      "label": "Zielgruppe/Altersempfehlung erwähnt",
+      "hint": "Hinweis: Alter, Zielgruppe oder Familienphase redaktionell prüfen.",
+      "keywords": [
+        "Alter",
+        "Jahre",
+        "Kleinkind",
+        "Baby",
+        "Schulkind",
+        "Teenager",
+        "Familien",
+        "Kinder"
+      ],
+      "weight": 3
+    },
+    "location": {
+      "label": "Ort/Region erwähnt",
+      "hint": "Hinweis: Ort, Region oder Einzugsgebiet ergänzen, falls relevant.",
+      "keywords": [
+        "Ort",
+        "Region",
+        "Adresse",
+        "Stadt",
+        "Landkreis",
+        "Nähe"
+      ],
+      "weight": 3
+    },
+    "costs": {
+      "label": "Kosten/Preise erwähnt",
+      "hint": "Hinweis: Kosten, Eintritt oder kostenlose Nutzung prüfen.",
+      "keywords": [
+        "Kosten",
+        "Preis",
+        "Eintritt",
+        "kostenlos",
+        "Euro",
+        "€",
+        "Gebühr"
+      ],
+      "weight": 3
+    },
+    "opening_hours": {
+      "label": "Öffnungszeiten erwähnt",
+      "hint": "Hinweis: Öffnungszeiten oder Saisonzeiten prüfen.",
+      "keywords": [
+        "Öffnungszeiten",
+        "geöffnet",
+        "Uhr",
+        "Saison",
+        "täglich"
+      ],
+      "weight": 2
+    },
+    "weather": {
+      "label": "Wetterabhängigkeit erwähnt",
+      "hint": "Hinweis: Indoor/Outdoor und Schlechtwetter-Eignung prüfen.",
+      "keywords": [
+        "Wetter",
+        "Regen",
+        "Indoor",
+        "Outdoor",
+        "draußen",
+        "drinnen"
+      ],
+      "weight": 2
+    },
+    "transport": {
+      "label": "Anfahrt/Parken/ÖPNV erwähnt",
+      "hint": "Hinweis: Anfahrt, Parken oder ÖPNV ergänzen, falls relevant.",
+      "keywords": [
+        "Anfahrt",
+        "Parken",
+        "Parkplatz",
+        "ÖPNV",
+        "Bus",
+        "Bahn",
+        "Haltestelle"
+      ],
+      "weight": 2
+    },
+    "specific_dates": {
+      "label": "Konkrete Aktualitätsangaben erwähnt",
+      "hint": "Hinweis: Konkrete Daten statt relativer Zeitangaben verwenden.",
+      "keywords": [
+        "2026",
+        "2027",
+        "Januar",
+        "Februar",
+        "März",
+        "April",
+        "Mai",
+        "Juni",
+        "Juli",
+        "August",
+        "September",
+        "Oktober",
+        "November",
+        "Dezember"
+      ],
+      "weight": 2
+    }
+  },
+  "output_formats": {
+    "preferred": "JSON",
+    "instagram": {
+      "caption_variants": 3,
+      "hashtag_count": "8-15",
+      "include_hook": true,
+      "include_cta": true
+    },
+    "newsletter": {
+      "max_characters": 450,
+      "style": "kurzer Teaser mit Nutzenversprechen"
+    }
+  },
+  "scoring": {
+    "labels": [
+      {
+        "min": 85,
+        "max": 100,
+        "text": "Sehr gut vorbereitet"
+      },
+      {
+        "min": 70,
+        "max": 84,
+        "text": "Gut, kleine Optimierungen möglich"
+      },
+      {
+        "min": 50,
+        "max": 69,
+        "text": "Überarbeitung empfohlen"
+      },
+      {
+        "min": 0,
+        "max": 49,
+        "text": "Nicht bereit für Social Push"
+      }
+    ]
+  },
+  "future_services": {
+    "ai_api": "Prompt_Builder-Ausgabe kann später direkt an einen AI-Service übergeben werden.",
+    "instagram_api": "Gespeicherte Instagram-Felder und Performance-Meta bilden die spätere Meta-API-Schnittstelle vor."
+  },
+  "general": {
+    "plugin_name": "KiMaPa Content Assistant",
+    "brand_name": "KiMaPa",
+    "portal_description": "Familienportal mit redaktionellen Tipps für Familien.",
+    "language": "de",
+    "post_types": [
+      "post"
+    ]
+  },
+  "channels": {
+    "instagram": true,
+    "newsletter": true,
+    "editorial_review": true,
+    "debug": true
+  },
+  "brand_guidance": {
+    "tone": [
+      "familiennah und warm",
+      "praktisch und alltagstauglich",
+      "verlässlich und redaktionell sorgfältig",
+      "positiv, aber nicht übertrieben werblich",
+      "klar, lokal und hilfreich für Eltern"
+    ],
+    "avoid_phrases": [
+      "Das müsst ihr unbedingt gesehen haben",
+      "garantiert perfekt",
+      "sensationell",
+      "einzigartig für alle Familien"
+    ]
+  },
+  "editorial_rules": [
+    "Keine Fakten erfinden.",
+    "Nur Informationen verwenden, die im Beitrag, in Kategorien, Tags, Checks oder extracted_facts vorhanden sind.",
+    "Wenn Inhalte veraltet wirken, in den redaktionellen Hinweisen deutlich markieren.",
+    "Wenn advertising_disclosure_detected true ist, muss #Anzeige oder eine geeignete Werbekennzeichnung in Instagram Caption und Newsletter-Hinweisen sichtbar bleiben.",
+    "Wenn der Excerpt als Platzhalter erkannt wurde, einen neuen redaktionellen Excerpt vorschlagen.",
+    "Wenn Datumsangaben ohne Jahr gefunden wurden, dies als Verbesserungshinweis aufnehmen."
+  ],
+  "required_output": [
+    "instagram_caption_variant_1_emotional",
+    "instagram_caption_variant_2_practical",
+    "instagram_caption_variant_3_short",
+    "hook",
+    "cta",
+    "hashtags",
+    "story_idea",
+    "carousel_idea",
+    "newsletter_teaser",
+    "suggested_excerpt",
+    "editorial_improvement_notes"
+  ],
+  "format_settings": {
+    "preferred": "JSON",
+    "instagram_caption_variants": 3,
+    "hashtag_count": "8-15",
+    "include_hook": true,
+    "include_cta": true,
+    "newsletter_max_characters": 450,
+    "newsletter_style": "kurzer Teaser mit Nutzenversprechen"
+  }
+}

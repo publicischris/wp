@@ -228,3 +228,114 @@ Die Extraktion ist heuristisch und erfindet keine Fakten. Wenn ein Wert nicht si
 4. Beitrag mit „aktuell“, „derzeit“ oder „in den Sommerferien“ analysieren und prüfen, ob die konkreten Begriffe im Check und Debug-Bereich erscheinen.
 5. Beitrag mit „27. Juli bis 30. September“ ohne Jahr analysieren und den Check `dates_without_year` prüfen.
 6. Ein gültiges KI-Ergebnis-JSON in **KI-Ergebnis JSON einfügen** einfügen, **KI-Ergebnis übernehmen** klicken und anschließend **Speichern**.
+
+## Konfigurierbare Plugin-Einstellungen
+
+Das Plugin legt beim Aktivieren die Option `kimapa_content_assistant_config` in `wp_options` an, sofern sie noch nicht existiert. Die Defaults kommen aus `config/default-config.json`; bestehende Optionen werden nicht überschrieben. Die `Config`-Klasse merged aktive Optionen immer mit den Datei-Defaults, damit neue Default-Felder nach Updates als Fallback verfügbar bleiben.
+
+Im WordPress-Admin gibt es den Menüpunkt **Content Assistant → Einstellungen**. Dort können gepflegt werden:
+
+- Allgemein: Projektname, Markenname, Portalbeschreibung, Sprache und Post Types.
+- Kanäle: Instagram, Newsletter, redaktionelle Prüfung und Debug-Bereich.
+- Brand Guidance: Tonalität und zu vermeidende Formulierungen als eine Zeile pro Eintrag.
+- Editorial Rules: eine Regel pro Zeile.
+- Required Output inklusive `suggested_excerpt`.
+- Format-Einstellungen wie JSON, Caption-Varianten, Hashtag-Anzahl, Hook/CTA und Newsletter-Stil.
+- Readonly JSON-Preview der aktuell aktiven Konfiguration.
+
+Wenn Instagram oder Newsletter deaktiviert sind, werden die entsprechenden Meta-Box-Bereiche ausgeblendet und die jeweiligen Ausgabefelder aus dem finalen Prompt entfernt.
+
+## Faktenextraktion: Adresse, Ort und Region
+
+Die Faktenextraktion priorisiert jetzt sichere Quellen:
+
+1. Adresse aus gelabelten Abschnitten wie „Adresse“, „Adresse Parkplatz“, „Anfahrt“, „Ort“ oder „Treffpunkt“.
+2. Straßenmuster wie `Straße`, `Str.`, `Weg`, `Platz`, `Allee`, `Gasse`, `Ring`, `Ufer` plus Hausnummer und fünfstellige PLZ.
+3. Ort aus erkannter Adresse, z. B. `Walhallastraße 48, 93093 Donaustauf` → `location: Donaustauf`.
+4. Region/Nähe aus Formulierungen wie „bei Regensburg“ oder „Autominuten von Regensburg entfernt“.
+5. Freitext-Orte nur aus plausiblen Formulierungen; Vergleichsorte wie „Akropolis in Athen“ werden verworfen.
+
+Zusätzlich werden `region_or_nearby` und `extracted_fact_confidence` im Prompt ausgegeben.
+
+## Publication-History-Tabelle
+
+Bei Plugin-Aktivierung wird mit `dbDelta` die Tabelle `{$wpdb->prefix}content_assistant_publications` angelegt:
+
+```sql
+CREATE TABLE {$wpdb->prefix}content_assistant_publications (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  post_id BIGINT UNSIGNED NOT NULL,
+  channel VARCHAR(50) NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'draft',
+  title VARCHAR(255) NULL,
+  content LONGTEXT NULL,
+  url TEXT NULL,
+  published_at DATETIME NULL,
+  metrics LONGTEXT NULL,
+  notes LONGTEXT NULL,
+  created_by BIGINT UNSIGNED NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  PRIMARY KEY  (id),
+  KEY post_id (post_id),
+  KEY channel (channel),
+  KEY status (status),
+  KEY published_at (published_at)
+);
+```
+
+In der Meta Box gibt es **Als Publication-History speichern**. Dieser Button erzeugt bewusst nur auf Klick einen Snapshot; normales Speichern erzeugt keine Historien-Duplikate. Eine kleine Liste der letzten Snapshots wird am Beitrag angezeigt.
+
+## Sicherer Live-Test
+
+- Das Plugin veröffentlicht nichts automatisch.
+- Es gibt keine externen API-Calls, Cronjobs oder E-Mails.
+- Der eigentliche Beitrag, Kategorien, Tags und Featured Images werden nicht verändert.
+- Analysen, Prompts, Meta-Felder und Snapshots werden nur nach berechtigter Admin-/Editor-Aktion gespeichert.
+- Deaktivierung löscht keine Daten.
+
+## Beispiel: Prompt mit aktiver Konfiguration
+
+```json
+{
+  "role": "Du bist ein redaktioneller Content Assistant für das Familienportal KiMaPa.",
+  "input": {
+    "title": "Walhalla mit Kindern besuchen",
+    "content_word_count": 920,
+    "categories": ["Ausflüge"],
+    "extracted_facts": {
+      "location": "Donaustauf",
+      "region_or_nearby": "Regensburg",
+      "address": "Walhallastraße 48, 93093 Donaustauf",
+      "age_recommendation": "ab 6 Jahren",
+      "price_or_offer": "freier Eintritt",
+      "opening_hours_or_dates": "27. Juli bis 30. September",
+      "indoor_outdoor": "outdoor",
+      "advertising_disclosure_detected": false,
+      "detected_relative_time_terms": [],
+      "detected_outdated_terms": [],
+      "dates_without_year": ["27. Juli bis 30. September"],
+      "placeholder_excerpt_detected": false,
+      "extracted_fact_confidence": {
+        "location": "high",
+        "address": "high",
+        "age_recommendation": "medium",
+        "price_or_offer": "medium",
+        "opening_hours_or_dates": "medium"
+      }
+    }
+  },
+  "brand_guidance": {
+    "tone": ["familiennah und warm"],
+    "avoid_phrases": ["garantiert perfekt"]
+  },
+  "editorial_rules": ["Keine Fakten erfinden."],
+  "required_output": ["suggested_excerpt", "editorial_improvement_notes"]
+}
+```
+
+## Spätere API-Erweiterungen
+
+- Eine KI-API kann später hinter dem `Prompt_Builder` ergänzt werden, indem dessen JSON-Payload an einen separaten Service übergeben wird.
+- Eine Social-/Meta-API kann später auf Basis der `Publications`-Tabelle arbeiten und Snapshots mit echten Publikationen/Metriken synchronisieren.
+- Die aktuelle Version bleibt absichtlich Copy/Paste-basiert und live-sicher.

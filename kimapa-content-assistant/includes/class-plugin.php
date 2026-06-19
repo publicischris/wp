@@ -24,6 +24,9 @@ final class Plugin
     /** @var Prompt_Builder */
     private $prompt_builder;
 
+    /** @var Publications */
+    private $publications;
+
     /** @var Admin */
     private $admin;
 
@@ -38,12 +41,13 @@ final class Plugin
 
     public function init(): void
     {
-        $this->config = new Config(KIMAPA_CA_DIR . 'config/kimapa-content-assistant.config.json');
+        $this->config = new Config(KIMAPA_CA_DIR . 'config/default-config.json');
         $this->meta = new Meta();
         $this->content_extractor = new Content_Extractor();
         $this->analyzer = new Analyzer($this->config, $this->content_extractor);
         $this->prompt_builder = new Prompt_Builder($this->config, $this->content_extractor);
-        $this->admin = new Admin($this->config, $this->meta, $this->analyzer, $this->prompt_builder, $this->content_extractor);
+        $this->publications = new Publications();
+        $this->admin = new Admin($this->config, $this->meta, $this->analyzer, $this->prompt_builder, $this->content_extractor, $this->publications);
         $this->admin->init();
     }
 }

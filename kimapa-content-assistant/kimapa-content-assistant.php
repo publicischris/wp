@@ -23,8 +23,14 @@ require_once KIMAPA_CA_DIR . 'includes/class-meta.php';
 require_once KIMAPA_CA_DIR . 'includes/class-content-extractor.php';
 require_once KIMAPA_CA_DIR . 'includes/class-analyzer.php';
 require_once KIMAPA_CA_DIR . 'includes/class-prompt-builder.php';
+require_once KIMAPA_CA_DIR . 'includes/class-publications.php';
 require_once KIMAPA_CA_DIR . 'includes/class-admin.php';
 require_once KIMAPA_CA_DIR . 'includes/class-plugin.php';
+
+register_activation_hook(__FILE__, static function () {
+    KiMaPa_Content_Assistant\Config::activate(KIMAPA_CA_DIR . 'config/default-config.json');
+    KiMaPa_Content_Assistant\Publications::activate();
+});
 
 add_action('plugins_loaded', static function () {
     KiMaPa_Content_Assistant\Plugin::instance()->init();

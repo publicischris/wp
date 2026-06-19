@@ -18,3 +18,7 @@
 .kimapa-ca-grid input { width: 100%; }
 .kimapa-ca-debug { background: #f6f7f7; }
 .kimapa-ca-debug ul { margin: 8px 0 0 18px; }
+.kimapa-ca-summary { margin: 6px 0 0; color: #646970; }
+.kimapa-ca-history { margin: 8px 0 0; }
+.kimapa-ca-history li { border-bottom: 1px solid #dcdcde; padding: 6px 0; }
+.kimapa-ca-settings textarea.large-text { max-width: 820px; }

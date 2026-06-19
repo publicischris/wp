@@ -76,6 +76,27 @@
     $box.find('[name="' + name + '"]').val(toText(value));
   }
 
+
+  $(document).on('toggle', '.kimapa-ca-checklist', function () {
+    $(this).children('summary').text(this.open ? 'Checkliste ausblenden' : 'Checkliste anzeigen');
+  });
+
+  $(document).on('click', '.kimapa-ca-snapshot', function () {
+    var $button = $(this);
+    var $box = $button.closest('.kimapa-ca');
+    var data = collectFields($box);
+    data.action = 'kimapa_ca_snapshot';
+    data.channel = $box.find('[name="_kimapa_newsletter_teaser"]').length && !$box.find('[name="_kimapa_instagram_caption"]').length ? 'newsletter' : 'instagram';
+    $button.prop('disabled', true).text('Speichern…');
+    $.post(kimapaCA.ajaxUrl, data).done(function (response) {
+      setStatus($box, response && response.success ? 'Snapshot gespeichert.' : kimapaCA.i18n.error, !response || !response.success);
+    }).fail(function () {
+      setStatus($box, kimapaCA.i18n.error, true);
+    }).always(function () {
+      $button.prop('disabled', false).text('Als Publication-History speichern');
+    });
+  });
+
   $(document).on('click', '.kimapa-ca-analyze', function () {
     var $button = $(this);
     var $box = $button.closest('.kimapa-ca');

@@ -36,8 +36,15 @@ class Prompt_Builder
         $dates_without_year = !empty($extracted_facts['dates_without_year']);
 
         $payload = [
-            'role' => 'Du bist ein redaktioneller Content Assistant für das Familienportal KiMaPa.',
-            'task' => 'Analysiere den Beitrag und erstelle strukturierte Social-Media- und Newsletter-Vorschläge. Veröffentliche nichts automatisch.',
+            'role' => sprintf('Du bist ein redaktioneller Content Assistant für %s.', (string) $this->config->get('general.brand_name', 'KiMaPa')),
+            'project_context' => [
+                'plugin_name' => $this->config->get('general.plugin_name', 'KiMaPa Content Assistant'),
+                'brand_name' => $this->config->get('general.brand_name', 'KiMaPa'),
+                'portal_description' => $this->config->get('general.portal_description', ''),
+                'language' => $this->config->get('general.language', 'de'),
+                'active_channels' => array_keys(array_filter($this->config->channels())),
+            ],
+            'task' => 'Analysiere den Beitrag und erstelle strukturierte Vorschläge für die aktivierten Kanäle. Veröffentliche nichts automatisch.',
             'input' => [
                 'title' => get_the_title($post),
                 'permalink' => get_permalink($post),
@@ -52,36 +59,18 @@ class Prompt_Builder
                 'extracted_facts' => $extracted_facts,
             ],
             'brand_guidance' => [
-                'tone' => $this->config->get('tone', []),
-                'avoid_phrases' => $this->config->get('avoid_phrases', []),
+                'tone' => $this->config->get('brand_guidance.tone', $this->config->get('tone', [])),
+                'avoid_phrases' => $this->config->get('brand_guidance.avoid_phrases', $this->config->get('avoid_phrases', [])),
             ],
-            'editorial_rules' => [
-                'Keine Fakten erfinden.',
-                'Nur Informationen verwenden, die im Beitrag, in Kategorien, Tags, Checks oder extracted_facts vorhanden sind.',
-                'Wenn Inhalte veraltet wirken, in den redaktionellen Hinweisen deutlich markieren.',
-                'Wenn advertising_disclosure_detected true ist, muss #Anzeige oder eine geeignete Werbekennzeichnung in Instagram Caption und Newsletter-Hinweisen sichtbar bleiben.',
-                'Wenn der Excerpt als Platzhalter erkannt wurde, einen neuen redaktionellen Excerpt vorschlagen.',
-                'Wenn Datumsangaben ohne Jahr gefunden wurden, dies als Verbesserungshinweis aufnehmen.',
-            ],
-            'required_output' => [
-                'instagram_caption_variant_1_emotional',
-                'instagram_caption_variant_2_practical',
-                'instagram_caption_variant_3_short',
-                'hook',
-                'cta',
-                'hashtags',
-                'story_idea',
-                'carousel_idea',
-                'newsletter_teaser',
-                'editorial_improvement_notes',
-            ],
+            'editorial_rules' => $this->config->get('editorial_rules', []),
+            'required_output' => $this->config->required_output(),
             'conditional_instructions' => array_values(array_filter([
                 $content_is_incomplete ? 'Wenn excerpt und content leer oder unvollständig sind, darfst du keine konkreten Details erfinden. Erstelle nur allgemeine Vorschläge auf Basis von Titel, Kategorie und Checks und weise deutlich darauf hin, dass der Beitragstext fehlt.' : '',
                 $advertising_detected ? 'Werbekennzeichnung wurde erkannt. Entferne sie nicht; halte sie in Instagram Caption und Newsletter-Hinweisen sichtbar.' : '',
                 $placeholder_excerpt ? 'Der aktuelle Auszug wirkt wie ein Platzhalter. Schlage einen neuen redaktionellen Excerpt vor.' : '',
                 $dates_without_year ? 'Datumsangaben ohne Jahr wurden erkannt. Markiere dies als redaktionellen Verbesserungshinweis.' : '',
             ])),
-            'format' => $this->config->get('output_formats', []),
+            'format' => $this->config->get('format_settings', $this->config->get('output_formats', [])),
         ];
 
         return wp_json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

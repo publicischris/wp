@@ -112,20 +112,142 @@ class Analyzer
         $relative_terms = (array) $this->config->get('wordpress_checks.relative_time_terms', []);
         $outdated_terms = ['Corona', 'Pandemie', 'Hygiene- und Sicherheitskonzept', 'aufgrund der Auflagen', 'derzeit geschlossen', 'reduzierte Plätze', 'ohne Pause durchgespielt', 'Schutzmaßnahmen'];
         $advertising_terms = ['#Anzeige', 'Anzeige', 'Werbung', 'Advertorial', 'Sponsored', 'Kooperation'];
+        $address = $this->detect_address($content);
+        $address_location = $address ? $this->location_from_address($address) : '';
+        $region = $this->detect_region($haystack, $address_location);
+        $location = $address_location ?: $this->detect_location($haystack, $category_text, $region);
+        $age = $this->detect_age_recommendation($haystack);
+        $price = $this->detect_price_or_offer($haystack);
+        $hours = $this->detect_opening_hours_or_dates($haystack);
 
         return [
-            'location' => $this->first_match('/\b(?:in|bei|nahe|rund um)\s+([A-ZÄÖÜ][\p{L}ÄÖÜäöüß\-]+(?:\s+[A-ZÄÖÜ][\p{L}ÄÖÜäöüß\-]+){0,2})\b/u', $haystack),
-            'address' => $this->first_match('/\b([A-ZÄÖÜ][\p{L}ÄÖÜäöüß\.\- ]+\s+\d+[a-zA-Z]?(?:,?\s*\d{5}\s+[A-ZÄÖÜ][\p{L}ÄÖÜäöüß\- ]+)?)\b/u', $content),
-            'age_recommendation' => $this->first_match('/\b(?:ab\s+(?:\d+|[a-zäöüß]+)\s+Jahren|bis\s+\d+\s+Jahre|für\s+Kinder\s+(?:ab|von)\s+[^,.\n]+)\b/iu', $haystack),
-            'price_or_offer' => $this->first_match('/\b(?:kostenlos|freier Eintritt|Eintritt frei|\d+[,.]?\d*\s*€|\d+[,.]?\d*\s*Euro|ein Kind kostenlos)\b/iu', $haystack),
-            'opening_hours_or_dates' => $this->first_match('/\b(?:\d{1,2}\.\s*(?:Januar|Februar|März|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember)(?:\s+bis\s+\d{1,2}\.\s*(?:Januar|Februar|März|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember))?|\d{1,2}[:.]\d{2}\s*(?:Uhr)?|Öffnungszeiten[^.\n]*)\b/iu', $haystack),
+            'location' => $location,
+            'region_or_nearby' => $region,
+            'address' => $address,
+            'age_recommendation' => $age,
+            'price_or_offer' => $price,
+            'opening_hours_or_dates' => $hours,
             'indoor_outdoor' => $this->detect_indoor_outdoor($haystack, $category_text),
             'advertising_disclosure_detected' => count($this->find_terms($haystack, $advertising_terms)) > 0,
             'detected_relative_time_terms' => $this->find_terms($haystack, $relative_terms),
             'detected_outdated_terms' => $this->find_terms($haystack, $outdated_terms),
             'dates_without_year' => $this->find_dates_without_year($haystack),
             'placeholder_excerpt_detected' => $this->is_placeholder_excerpt((string) $extraction['excerpt'], $title, $content),
+            'extracted_fact_confidence' => [
+                'location' => $location !== '' ? ($address_location ? 'high' : 'medium') : '',
+                'address' => $address !== '' ? 'high' : '',
+                'age_recommendation' => $age !== '' ? 'medium' : '',
+                'price_or_offer' => $price !== '' ? 'medium' : '',
+                'opening_hours_or_dates' => $hours !== '' ? 'medium' : '',
+            ],
         ];
+    }
+
+    private function detect_address(string $content): string
+    {
+        $street = '(?:Straße|str\.|Str\.|Weg|Platz|Allee|Gasse|Ring|Ufer)';
+        $lines = preg_split('/\R/u', $content) ?: [];
+        foreach ($lines as $line) {
+            if (preg_match('/(?:Adresse(?: Parkplatz)?|Anfahrt|Ort|Treffpunkt)\s*:?\s*(.+)/iu', $line, $m)) {
+                $candidate = trim($m[1]);
+                if (preg_match('/\b\d{5}\b/u', $candidate) && preg_match('/\b[\p{L}ÄÖÜäöüß\- ]+' . $street . '\s+\d+[a-zA-Z]?/iu', $candidate)) {
+                    return $this->clean_fact($candidate);
+                }
+            }
+        }
+        if (preg_match('/\b([\p{L}ÄÖÜäöüß\- ]+' . $street . '\s+\d+[a-zA-Z]?,?\s*\d{5}\s+[A-ZÄÖÜ][\p{L}ÄÖÜäöüß\- ]+)\b/iu', $content, $m)) {
+            return $this->clean_fact($m[1]);
+        }
+        return '';
+    }
+
+    private function location_from_address(string $address): string
+    {
+        if (preg_match('/\b\d{5}\s+([A-ZÄÖÜ][\p{L}ÄÖÜäöüß\- ]+)$/u', $address, $m)) {
+            return trim($m[1]);
+        }
+        return '';
+    }
+
+    private function detect_region(string $content, string $location): string
+    {
+        if (preg_match('/(?:bei|rund um|von|nahe)\s+([A-ZÄÖÜ][\p{L}ÄÖÜäöüß\-]+)(?:\s+entfernt)?/u', $content, $m)) {
+            $candidate = trim($m[1]);
+            return $candidate !== $location && !$this->is_comparison_location($content, $candidate) ? $candidate : '';
+        }
+        if (preg_match('/nur\s+\d+\s+Autominuten\s+von\s+([A-ZÄÖÜ][\p{L}ÄÖÜäöüß\-]+)\s+entfernt/u', $content, $m)) {
+            return trim($m[1]);
+        }
+        return '';
+    }
+
+    private function detect_location(string $content, string $category_text, string $region): string
+    {
+        if (preg_match('/\b(?:in|bei|rund um)\s+([A-ZÄÖÜ][\p{L}ÄÖÜäöüß\-]+)\b/u', $category_text, $m)) {
+            return trim($m[1]);
+        }
+        preg_match_all('/\b(?:in|bei|rund um)\s+([A-ZÄÖÜ][\p{L}ÄÖÜäöüß\-]+)\b/u', $content, $matches);
+        foreach ($matches[1] ?? [] as $candidate) {
+            $candidate = trim($candidate);
+            if ($candidate !== $region && !$this->is_bad_location_candidate($candidate) && !$this->is_comparison_location($content, $candidate)) {
+                return $candidate;
+            }
+        }
+        return '';
+    }
+
+    private function is_bad_location_candidate(string $candidate): bool
+    {
+        return in_array(mb_strtolower($candidate), ['begleitung', 'athen'], true);
+    }
+
+    private function is_comparison_location(string $content, string $candidate): bool
+    {
+        return preg_match('/(?:erinnerte\s+an|ähnlich\s+wie|wie|Akropolis\s+in)\s+[^.\n]{0,80}' . preg_quote($candidate, '/') . '/iu', $content) === 1;
+    }
+
+    private function detect_opening_hours_or_dates(string $content): string
+    {
+        $weekday = '(?:Montag|Dienstag|Mittwoch|Donnerstag|Freitag|Samstag|Sonntag|Mo|Di|Mi|Do|Fr|Sa|So)';
+        $time = '\d{1,2}(?::|\.)?\d{0,2}\s*Uhr';
+        $date = '(?:vom\s+)?\d{1,2}\.\s*(?:Januar|Februar|März|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember)(?:\s+bis\s+\d{1,2}\.\s*(?:Januar|Februar|März|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember))?';
+        if (preg_match('/\b(' . $weekday . '[^.\n]{0,80}' . $time . '(?:[^.\n]{0,80}' . $time . ')?)\b/iu', $content, $m)) {
+            return $this->clean_fact($m[1]);
+        }
+        if (preg_match('/\b(' . $date . ')\b/iu', $content, $m)) {
+            return $this->clean_fact($m[1]);
+        }
+        if (preg_match('/\b(Öffnungszeiten[^.\n]{0,140})/iu', $content, $m)) {
+            return $this->clean_fact($m[1]);
+        }
+        return '';
+    }
+
+    private function detect_price_or_offer(string $content): string
+    {
+        if (preg_match('/\b(ein\s+Kind\s+bis\s+14\s+Jahre\s+in\s+Begleitung\s+eines\s+regulär\s+zahlenden\s+Erwachsenen\s+kostenlos)\b/iu', $content, $m)) {
+            return ucfirst($this->clean_fact($m[1]));
+        }
+        if (preg_match('/\b([^\n.]{0,60}(?:kostenlos|freier Eintritt|Eintritt frei|Kind kostenlos|Rabatt|Ermäßigung)[^\n.]{0,60})\b/iu', $content, $m)) {
+            return $this->clean_fact($m[1]);
+        }
+        if (preg_match('/\b(\d+[,.]?\d*\s*(?:€|Euro))\b/iu', $content, $m)) {
+            return $this->clean_fact($m[1]);
+        }
+        return '';
+    }
+
+    private function detect_age_recommendation(string $content): string
+    {
+        if (preg_match('/\b(ab\s+(?:\d+|[a-zäöüß]+)\s+Jahren|für\s+Kinder\s+ab\s+[^,.\n]+|bis\s+\d+\s+Jahre|Kleinkinder|Grundschulkinder|Teenager)\b/iu', $content, $m)) {
+            return $this->clean_fact($m[1]);
+        }
+        return '';
+    }
+
+    private function clean_fact(string $value): string
+    {
+        return trim((string) preg_replace('/\s+/u', ' ', $value), " \t\n\r\0\x0B.,;:");
     }
 
     private function is_placeholder_excerpt(string $excerpt, string $title, string $content): bool
