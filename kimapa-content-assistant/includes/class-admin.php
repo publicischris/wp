@@ -13,13 +13,15 @@ class Admin
     /** @var Meta */ private $meta;
     /** @var Analyzer */ private $analyzer;
     /** @var Prompt_Builder */ private $prompt_builder;
+    /** @var Content_Extractor */ private $content_extractor;
 
-    public function __construct(Config $config, Meta $meta, Analyzer $analyzer, Prompt_Builder $prompt_builder)
+    public function __construct(Config $config, Meta $meta, Analyzer $analyzer, Prompt_Builder $prompt_builder, Content_Extractor $content_extractor)
     {
         $this->config = $config;
         $this->meta = $meta;
         $this->analyzer = $analyzer;
         $this->prompt_builder = $prompt_builder;
+        $this->content_extractor = $content_extractor;
     }
 
     public function init(): void
@@ -87,6 +89,7 @@ class Admin
                     <p><label><?php echo esc_html($label); ?><input name="<?php echo esc_attr($key); ?>" type="number" min="0" value="<?php echo esc_attr((string) $meta[$key]); ?>"></label></p>
                 <?php endforeach; ?>
             </div>
+            <?php $this->render_extraction_debug((int) $post->ID); ?>
             <button type="button" class="button kimapa-ca-save"><?php esc_html_e('Speichern', 'kimapa-content-assistant'); ?></button>
         </div>
         <?php
@@ -116,6 +119,27 @@ class Admin
             wp_send_json_error(['message' => __('Keine Berechtigung.', 'kimapa-content-assistant')], 403);
         }
         return $post_id;
+    }
+
+    private function render_extraction_debug(int $post_id): void
+    {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        $debug = $this->content_extractor->extract($post_id);
+        ?>
+        <details class="kimapa-ca-debug">
+            <summary><?php esc_html_e('Content-Extraktion Debug', 'kimapa-content-assistant'); ?></summary>
+            <ul>
+                <li><?php printf(esc_html__('Rohinhalt vorhanden: %s', 'kimapa-content-assistant'), esc_html($debug['raw_content_present'] ? __('ja', 'kimapa-content-assistant') : __('nein', 'kimapa-content-assistant'))); ?></li>
+                <li><?php printf(esc_html__('Bereinigter Inhalt Länge: %d Zeichen', 'kimapa-content-assistant'), absint($debug['content_length'])); ?></li>
+                <li><?php printf(esc_html__('Wortanzahl: %d', 'kimapa-content-assistant'), absint($debug['content_word_count'])); ?></li>
+                <li><?php printf(esc_html__('Excerpt-Quelle: %s', 'kimapa-content-assistant'), esc_html((string) $debug['excerpt_source'])); ?></li>
+                <li><?php printf(esc_html__('Content Extraction Status: %s', 'kimapa-content-assistant'), esc_html((string) $debug['content_extraction_status'])); ?></li>
+            </ul>
+        </details>
+        <?php
     }
 
     private function textarea(string $key, string $label, array $meta, int $rows = 3, bool $readonly = false): void

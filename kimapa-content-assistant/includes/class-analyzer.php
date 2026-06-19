@@ -10,9 +10,13 @@ class Analyzer
     /** @var Config */
     private $config;
 
-    public function __construct(Config $config)
+    /** @var Content_Extractor */
+    private $content_extractor;
+
+    public function __construct(Config $config, Content_Extractor $content_extractor)
     {
         $this->config = $config;
+        $this->content_extractor = $content_extractor;
     }
 
     public function analyze(int $post_id): array
@@ -35,8 +39,9 @@ class Analyzer
     private function wordpress_checks(\WP_Post $post): array
     {
         $post_id = (int) $post->ID;
-        $content = wp_strip_all_tags(strip_shortcodes($post->post_content));
-        $word_count = str_word_count($content);
+        $extraction = $this->content_extractor->extract($post_id);
+        $content = $extraction['content'];
+        $word_count = (int) $extraction['content_word_count'];
         $thumb_id = get_post_thumbnail_id($post_id);
         $image = $thumb_id ? wp_get_attachment_image_src($thumb_id, 'full') : false;
         $min_words = (int) $this->config->get('wordpress_checks.min_word_count', 450);
@@ -63,7 +68,8 @@ class Analyzer
 
     private function consistency_checks(\WP_Post $post): array
     {
-        $content = wp_strip_all_tags(strip_shortcodes($post->post_content . ' ' . $post->post_excerpt));
+        $extraction = $this->content_extractor->extract((int) $post->ID);
+        $content = $extraction['content'] . ' ' . $extraction['excerpt'];
         $items = (array) $this->config->get('content_consistency_checks', []);
         $checks = [];
         foreach ($items as $key => $item) {

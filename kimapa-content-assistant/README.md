@@ -100,3 +100,40 @@ Neue Konsistenzchecks benötigen im MVP keinen PHP-Code, solange sie keywordbasi
 - Ausgaben in der Meta Box werden escaped.
 - Es sind keine API-Keys enthalten oder erforderlich.
 - Das MVP veröffentlicht nichts automatisch auf Instagram und ruft keine externe KI-API auf.
+
+## Content-Extraktion für Avada/Fusion Builder
+
+Die Content-Extraktion ist in `includes/class-content-extractor.php` zentralisiert. Sie liest den originalen `post_content` per `get_post_field( 'post_content', $post_id, 'raw' )`, entfernt technische Blöcke wie Scripts, Styles und Kommentare und bereinigt Avada/Fusion-Builder-Shortcodes so, dass redaktioneller Text in Containern, Rows, Columns, `fusion_text` und `fusion_title` erhalten bleibt.
+
+Layout- und Designelemente wie Separatoren, Imageframes, Galerien oder Menü-Anker werden entfernt, damit der Prompt keinen technischen Ballast enthält. Verbleibende Shortcode-Klammern, HTML-Tags und HTML-Entities werden normalisiert; Whitespace und Leerzeilen werden reduziert.
+
+Wenn kein manueller Excerpt vorhanden ist, erzeugt das Plugin automatisch einen sauberen Auszug aus dem bereinigten Beitragstext. Der Prompt enthält zusätzlich `content_word_count`, `content_extraction_status` und `content_extraction_warnings`. Bei leerem oder sehr kurzem Inhalt wird eine Safety-Anweisung ergänzt, damit die KI keine Details erfindet.
+
+Administratoren sehen in der Meta Box eine einklappbare Debug-Ausgabe mit Rohinhalt-Status, bereinigter Inhaltslänge, Wortanzahl, Excerpt-Quelle und Extraktionsstatus.
+
+### Beispiel für relevante Prompt-Felder
+
+```json
+{
+  "input": {
+    "title": "Ausflug mit Kindern in München",
+    "permalink": "https://example.test/ausflug-muenchen/",
+    "excerpt": "Ein familienfreundlicher Ausflugstipp mit Spielplatz, Café und praktischen Hinweisen zur Anfahrt…",
+    "content": "Ein Ausflug mit Kindern gelingt besonders entspannt, wenn Spielmöglichkeiten, Pausen und Anfahrt gut zusammenpassen. In diesem Beitrag findet ihr konkrete Tipps...",
+    "content_word_count": 842,
+    "content_extraction_status": "success",
+    "content_extraction_warnings": [],
+    "categories": ["Ausflüge"],
+    "tags": ["München", "Familien", "Wochenende"],
+    "checks": []
+  }
+}
+```
+
+### Lokal testen
+
+1. Plugin aktivieren und einen Beitrag mit klassischem Inhalt öffnen.
+2. Einen Testbeitrag mit Avada/Fusion-Builder-Shortcodes wie `[fusion_builder_container]`, `[fusion_builder_row]`, `[fusion_builder_column]`, `[fusion_text]Text[/fusion_text]` anlegen.
+3. In der Meta Box **Beitrag analysieren** klicken.
+4. Prüfen, ob der kopierbare JSON-Prompt `excerpt`, `content`, `content_word_count`, `content_extraction_status` und `content_extraction_warnings` enthält.
+5. Als Administrator die Debug-Ausgabe **Content-Extraktion Debug** öffnen und Rohinhalt, Länge, Wortanzahl und Excerpt-Quelle kontrollieren.

@@ -15,6 +15,9 @@ final class Plugin
     /** @var Meta */
     private $meta;
 
+    /** @var Content_Extractor */
+    private $content_extractor;
+
     /** @var Analyzer */
     private $analyzer;
 
@@ -37,9 +40,10 @@ final class Plugin
     {
         $this->config = new Config(KIMAPA_CA_DIR . 'config/kimapa-content-assistant.config.json');
         $this->meta = new Meta();
-        $this->analyzer = new Analyzer($this->config);
-        $this->prompt_builder = new Prompt_Builder($this->config);
-        $this->admin = new Admin($this->config, $this->meta, $this->analyzer, $this->prompt_builder);
+        $this->content_extractor = new Content_Extractor();
+        $this->analyzer = new Analyzer($this->config, $this->content_extractor);
+        $this->prompt_builder = new Prompt_Builder($this->config, $this->content_extractor);
+        $this->admin = new Admin($this->config, $this->meta, $this->analyzer, $this->prompt_builder, $this->content_extractor);
         $this->admin->init();
     }
 }

@@ -12,3 +12,6 @@
 .kimapa-ca-grid { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .kimapa-ca-grid p { margin: 0; }
 .kimapa-ca-grid input { width: 100%; }
+.kimapa-ca-debug { background: #f6f7f7; border: 1px solid #dcdcde; margin: 12px 0; padding: 8px; }
+.kimapa-ca-debug summary { cursor: pointer; font-weight: 600; }
+.kimapa-ca-debug ul { margin: 8px 0 0 18px; }

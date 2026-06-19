@@ -20,6 +20,7 @@ define('KIMAPA_CA_URL', plugin_dir_url(__FILE__));
 
 require_once KIMAPA_CA_DIR . 'includes/class-config.php';
 require_once KIMAPA_CA_DIR . 'includes/class-meta.php';
+require_once KIMAPA_CA_DIR . 'includes/class-content-extractor.php';
 require_once KIMAPA_CA_DIR . 'includes/class-analyzer.php';
 require_once KIMAPA_CA_DIR . 'includes/class-prompt-builder.php';
 require_once KIMAPA_CA_DIR . 'includes/class-admin.php';
