@@ -119,14 +119,14 @@ class Admin
                 <p class="description"><?php esc_html_e('If no meta keys are entered, automatic detection from the post content remains active.', 'kimapa-content-assistant'); ?></p>
                 <label><input type="checkbox" name="structured_fields[enabled]" value="1" <?php checked(!empty($config['structured_fields']['enabled'])); ?>> <?php esc_html_e('Use structured location fields', 'kimapa-content-assistant'); ?></label><br>
                 <label><input type="checkbox" name="structured_fields[fallback_to_content_parsing]" value="1" <?php checked(!isset($config['structured_fields']['fallback_to_content_parsing']) || !empty($config['structured_fields']['fallback_to_content_parsing'])); ?>> <?php esc_html_e('Extract from post content when structured fields are empty', 'kimapa-content-assistant'); ?></label>
-                <?php foreach (['latitude' => 'Latitude Meta Key', 'longitude' => 'Longitude Meta Key', 'google_maps_link' => 'Google Maps Link Meta Key', 'street' => 'Street meta key', 'zip' => 'PLZ Meta Key', 'city' => 'City meta key', 'external_link' => 'External link meta key', 'image_credit' => 'Image credit meta key'] as $field => $label) : ?>
+                <?php foreach (['latitude' => 'Latitude Meta Key', 'longitude' => 'Longitude Meta Key', 'google_maps_link' => 'Google Maps Link Meta Key', 'street' => 'Street meta key', 'zip' => 'ZIP/postal code meta key', 'city' => 'City meta key', 'external_link' => 'External link meta key', 'image_credit' => 'Image credit meta key'] as $field => $label) : ?>
                     <?php $this->settings_text('structured_fields[meta_keys][' . $field . ']', __($label, 'kimapa-content-assistant'), $config['structured_fields']['meta_keys'][$field] ?? ''); ?>
                     <p class="description"><?php esc_html_e('Enter the technical meta key, not the visible label.', 'kimapa-content-assistant'); ?></p>
                 <?php endforeach; ?>
 
                 <h2><?php esc_html_e('Brand Guidance', 'kimapa-content-assistant'); ?></h2>
                 <?php $this->settings_textarea('brand_guidance[tone]', __('Tone (one entry per line)', 'kimapa-content-assistant'), implode("\n", (array) ($config['brand_guidance']['tone'] ?? $config['tone'] ?? [])), 6); ?>
-                <?php $this->settings_textarea('brand_guidance[avoid_phrases]', __('Zu vermeidende Formulierungen', 'kimapa-content-assistant'), implode("\n", (array) ($config['brand_guidance']['avoid_phrases'] ?? $config['avoid_phrases'] ?? [])), 5); ?>
+                <?php $this->settings_textarea('brand_guidance[avoid_phrases]', __('Avoid phrases', 'kimapa-content-assistant'), implode("\n", (array) ($config['brand_guidance']['avoid_phrases'] ?? $config['avoid_phrases'] ?? [])), 5); ?>
 
                 <h2><?php esc_html_e('Editorial Rules', 'kimapa-content-assistant'); ?></h2>
                 <?php $this->settings_textarea('editorial_rules', __('Rules (one per line)', 'kimapa-content-assistant'), implode("\n", (array) ($config['editorial_rules'] ?? [])), 7); ?>
@@ -274,7 +274,7 @@ class Admin
                 <p class="description"><?php esc_html_e('Without an Instagram API, these values can be maintained manually. The link is used as a reference for later evaluation.', 'kimapa-content-assistant'); ?></p>
                 <p><label for="kimapa_ca_instagram_url"><?php esc_html_e('Instagram link', 'kimapa-content-assistant'); ?></label><input class="widefat kimapa-ca-copy-source" id="kimapa_ca_instagram_url" name="_kimapa_instagram_url" type="url" value="<?php echo esc_attr((string) $meta['_kimapa_instagram_url']); ?>" inputmode="url"><button type="button" class="button button-small kimapa-ca-copy" data-copy-target="#kimapa_ca_instagram_url"><?php esc_html_e('Copy Instagram link', 'kimapa-content-assistant'); ?></button></p>
                 <div class="kimapa-ca-grid">
-                    <?php foreach (['_kimapa_instagram_likes' => 'Likes', '_kimapa_instagram_comments' => 'Comments', '_kimapa_instagram_shares' => 'Shares', '_kimapa_instagram_saves' => 'Saves', '_kimapa_instagram_reach' => 'Reach', '_kimapa_instagram_impressions' => 'Impressionen'] as $key => $label) : ?>
+                    <?php foreach (['_kimapa_instagram_likes' => 'Likes', '_kimapa_instagram_comments' => 'Comments', '_kimapa_instagram_shares' => 'Shares', '_kimapa_instagram_saves' => 'Saves', '_kimapa_instagram_reach' => 'Reach', '_kimapa_instagram_impressions' => 'Impressions'] as $key => $label) : ?>
                         <p><label><?php echo esc_html($label); ?><input name="<?php echo esc_attr($key); ?>" type="number" min="0" step="1" value="<?php echo esc_attr((string) $meta[$key]); ?>" inputmode="numeric"></label></p>
                     <?php endforeach; ?>
                 </div>

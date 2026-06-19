@@ -518,7 +518,7 @@ class Analyzer
                 return (string) ($label['text'] ?? '');
             }
         }
-        return __('Bewertung berechnet', 'kimapa-content-assistant');
+        return __('Score calculated', 'kimapa-content-assistant');
     }
 
     private function check(string $key, bool $passed, string $label, string $message, int $weight, string $severity, array $data = []): array

@@ -266,10 +266,10 @@ class Config
         return [
             'general' => ['plugin_name' => 'Content Assistant', 'brand_name' => 'Your Brand', 'portal_description' => 'Editorial website or content platform.', 'language' => 'auto', 'post_types' => ['post'], 'content_profile' => 'generic_editorial'],
             'channels' => ['instagram' => true, 'newsletter' => true, 'editorial_review' => true, 'debug' => true],
-            'brand_guidance' => ['tone' => ['klar und verständlich'], 'avoid_phrases' => []],
-            'tone' => ['klar und verständlich'],
+            'brand_guidance' => ['tone' => ['clear and understandable'], 'avoid_phrases' => []],
+            'tone' => ['clear and understandable'],
             'avoid_phrases' => [],
-            'editorial_rules' => ['Keine Fakten erfinden.'],
+            'editorial_rules' => ['Do not invent facts.'],
             'required_output' => ['suggested_excerpt', 'editorial_improvement_notes'],
             'format_settings' => ['preferred' => 'JSON', 'instagram_caption_variants' => 3, 'hashtag_count' => '8-15', 'include_hook' => true, 'include_cta' => true, 'newsletter_max_characters' => 450, 'newsletter_style' => ''],
             'structured_fields' => ['enabled' => false, 'fallback_to_content_parsing' => true, 'meta_keys' => ['latitude' => '', 'longitude' => '', 'google_maps_link' => '', 'street' => '', 'zip' => '', 'city' => '', 'external_link' => '', 'image_credit' => '']],

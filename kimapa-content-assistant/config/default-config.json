@@ -21,26 +21,26 @@
       "label": "Generic Editorial",
       "brand_guidance": {
         "tone": [
-          "klar und verständlich",
-          "redaktionell sorgfältig",
-          "hilfreich und konkret",
-          "nicht übertrieben werblich",
-          "zur Marke passend"
+          "clear and understandable",
+          "editorially careful",
+          "helpful and specific",
+          "not overly promotional",
+          "aligned with the brand"
         ],
         "avoid_phrases": [
-          "garantiert perfekt",
-          "sensationell",
-          "einzigartig für alle",
-          "das müsst ihr unbedingt gesehen haben"
+          "guaranteed perfect",
+          "sensational",
+          "unique for everyone",
+          "you absolutely have to see this"
         ]
       },
       "editorial_rules": [
-        "Keine Fakten erfinden.",
-        "Nur Informationen verwenden, die im Beitrag, in Kategorien, Tags, Checks oder extracted_facts vorhanden sind.",
-        "Wenn Inhalte veraltet wirken, in den redaktionellen Hinweisen deutlich markieren.",
-        "Wenn Werbekennzeichnung erkannt wurde, darf sie in Social-Media- oder Newsletter-Ausgaben nicht entfernt werden.",
-        "Wenn der Auszug wie ein Platzhalter wirkt, einen neuen redaktionellen Auszug vorschlagen.",
-        "Wenn Datumsangaben ohne Jahr gefunden wurden, dies als Verbesserungshinweis aufnehmen."
+        "Do not invent facts.",
+        "Only use information that is present in the post, categories, tags, checks or extracted_facts.",
+        "If content appears outdated, clearly mark this in the editorial improvement notes.",
+        "If advertising disclosure was detected, it must not be removed from social media or newsletter outputs.",
+        "If the excerpt appears to be a placeholder, suggest a new editorial excerpt.",
+        "If dates without a year were found, include this as an improvement note."
       ],
       "content_consistency_checks": {},
       "required_output": [
@@ -62,41 +62,41 @@
         "include_hook": true,
         "include_cta": true,
         "newsletter_max_characters": 450,
-        "newsletter_style": "kurzer Teaser mit Nutzenversprechen"
+        "newsletter_style": "short teaser with value proposition"
       }
     },
     "local_family_events": {
       "label": "Local / Family / Events",
       "brand_guidance": {
         "tone": [
-          "familiennah und warm",
-          "praktisch und alltagstauglich",
-          "verlässlich und redaktionell sorgfältig",
-          "klar, lokal und hilfreich"
+          "warm and family-friendly",
+          "practical and suitable for everyday use",
+          "reliable and editorially careful",
+          "clear, local and helpful"
         ],
         "avoid_phrases": [
-          "garantiert perfekt",
-          "sensationell",
-          "einzigartig für alle"
+          "guaranteed perfect",
+          "sensational",
+          "unique for everyone"
         ]
       },
       "content_consistency_checks": {
         "location": {
-          "label": "Ort/Region erwähnt",
-          "hint": "Hinweis: Ort, Region oder Einzugsgebiet ergänzen, falls relevant.",
+          "label": "Location/region mentioned",
+          "hint": "Note: add location, region or catchment area if relevant.",
           "keywords": [
             "Ort",
             "Region",
             "Adresse",
             "Stadt",
             "Landkreis",
-            "Nähe"
+            "nearby"
           ],
           "weight": 3
         },
         "target_group": {
-          "label": "Zielgruppe/Alter erwähnt",
-          "hint": "Hinweis: Alter, Zielgruppe oder Familienphase redaktionell prüfen.",
+          "label": "Target group/age mentioned",
+          "hint": "Note: review age, target group or family phase editorially.",
           "keywords": [
             "Alter",
             "Jahre",
@@ -106,8 +106,8 @@
           "weight": 3
         },
         "costs": {
-          "label": "Kosten/Preise erwähnt",
-          "hint": "Hinweis: Kosten, Eintritt oder kostenlose Nutzung prüfen.",
+          "label": "Costs/prices mentioned",
+          "hint": "Note: review costs, admission or free use.",
           "keywords": [
             "Kosten",
             "Preis",
@@ -119,8 +119,8 @@
           "weight": 3
         },
         "opening_hours": {
-          "label": "Öffnungszeiten/Saisonzeiten erwähnt",
-          "hint": "Hinweis: Öffnungszeiten oder Saisonzeiten prüfen.",
+          "label": "Opening hours/seasonal times mentioned",
+          "hint": "Note: review opening hours or seasonal times.",
           "keywords": [
             "Öffnungszeiten",
             "geöffnet",
@@ -130,8 +130,8 @@
           "weight": 2
         },
         "weather": {
-          "label": "Wetter/Indoor/Outdoor erwähnt",
-          "hint": "Hinweis: Indoor/Outdoor und Wetterabhängigkeit prüfen.",
+          "label": "Weather/indoor/outdoor mentioned",
+          "hint": "Note: review indoor/outdoor and weather dependency.",
           "keywords": [
             "Wetter",
             "Regen",
@@ -143,8 +143,8 @@
           "weight": 2
         },
         "transport": {
-          "label": "Anfahrt/Parken/ÖPNV erwähnt",
-          "hint": "Hinweis: Anfahrt, Parken oder ÖPNV ergänzen.",
+          "label": "Directions/parking/public transport mentioned",
+          "hint": "Note: add directions, parking or public transport.",
           "keywords": [
             "Anfahrt",
             "Parken",
@@ -175,20 +175,20 @@
       "brand_guidance": {
         "tone": [
           "professionell und klar",
-          "nutzenorientiert",
-          "vertrauenswürdig",
-          "präzise statt übertrieben werblich"
+          "benefit-oriented",
+          "trustworthy",
+          "precise instead of overly promotional"
         ],
         "avoid_phrases": [
-          "sensationell",
-          "revolutionär",
-          "garantiert perfekt"
+          "sensational",
+          "revolutionary",
+          "guaranteed perfect"
         ]
       },
       "content_consistency_checks": {
         "persona": {
-          "label": "Zielgruppe/Persona erwähnt",
-          "hint": "Persona, Branche oder Entscheiderrolle prüfen.",
+          "label": "Target audience/persona mentioned",
+          "hint": "Review persona, industry or decision-maker role.",
           "keywords": [
             "Zielgruppe",
             "Persona",
@@ -200,7 +200,7 @@
         },
         "value": {
           "label": "Nutzenversprechen klar",
-          "hint": "Konkreten Nutzen oder Mehrwert prüfen.",
+          "hint": "Review concrete benefit or added value.",
           "keywords": [
             "Nutzen",
             "Mehrwert",
@@ -211,8 +211,8 @@
           "weight": 3
         },
         "proof": {
-          "label": "Trust/Proof/Quelle erwähnt",
-          "hint": "Belege, Quellen, Cases oder Referenzen prüfen.",
+          "label": "Trust/proof/source mentioned",
+          "hint": "Review evidence, sources, cases or references.",
           "keywords": [
             "Quelle",
             "Studie",
@@ -224,7 +224,7 @@
         },
         "cta": {
           "label": "CTA vorhanden",
-          "hint": "Nächste Aktion oder Kontaktmöglichkeit prüfen.",
+          "hint": "Review next action or contact option.",
           "keywords": [
             "Kontakt",
             "Download",
@@ -240,21 +240,21 @@
       "label": "Tech / IT / SaaS",
       "brand_guidance": {
         "tone": [
-          "präzise und verständlich",
-          "technisch korrekt",
-          "nutzenorientiert",
-          "keine unbelegten Leistungsversprechen"
+          "precise and understandable",
+          "technically accurate",
+          "benefit-oriented",
+          "no unsupported performance claims"
         ],
         "avoid_phrases": [
           "100% sicher",
           "garantiert ausfallsicher",
-          "revolutionär"
+          "revolutionary"
         ]
       },
       "content_consistency_checks": {
         "problem": {
-          "label": "Problem/Szenario klar",
-          "hint": "Problem, Use Case oder Szenario prüfen.",
+          "label": "Problem/scenario clear",
+          "hint": "Review problem, use case or scenario.",
           "keywords": [
             "Problem",
             "Herausforderung",
@@ -264,8 +264,8 @@
           "weight": 3
         },
         "solution": {
-          "label": "Lösung/Nutzen klar",
-          "hint": "Lösung und Nutzen verständlich darstellen.",
+          "label": "Solution/benefit clear",
+          "hint": "Present solution and benefit clearly.",
           "keywords": [
             "Lösung",
             "Nutzen",
@@ -276,8 +276,8 @@
           "weight": 3
         },
         "audience": {
-          "label": "Zielgruppe/Use Case klar",
-          "hint": "Zielgruppe, Rolle oder Use Case prüfen.",
+          "label": "Target audience/use case clear",
+          "hint": "Review target audience, role or use case.",
           "keywords": [
             "Zielgruppe",
             "IT",
@@ -288,8 +288,8 @@
           "weight": 2
         },
         "compliance": {
-          "label": "Quellen/Standards/Compliance erwähnt",
-          "hint": "Quellen, Standards oder Compliance-Hinweise prüfen, falls relevant.",
+          "label": "Sources/standards/compliance mentioned",
+          "hint": "Review sources, standards or compliance notes if relevant.",
           "keywords": [
             "ISO",
             "DSGVO",
@@ -305,39 +305,39 @@
   },
   "brand_guidance": {
     "tone": [
-      "klar und verständlich",
-      "redaktionell sorgfältig",
-      "hilfreich und konkret",
-      "nicht übertrieben werblich",
-      "zur Marke passend"
+      "clear and understandable",
+      "editorially careful",
+      "helpful and specific",
+      "not overly promotional",
+      "aligned with the brand"
     ],
     "avoid_phrases": [
-      "garantiert perfekt",
-      "sensationell",
-      "einzigartig für alle",
-      "das müsst ihr unbedingt gesehen haben"
+      "guaranteed perfect",
+      "sensational",
+      "unique for everyone",
+      "you absolutely have to see this"
     ]
   },
   "tone": [
-    "klar und verständlich",
-    "redaktionell sorgfältig",
-    "hilfreich und konkret",
-    "nicht übertrieben werblich",
-    "zur Marke passend"
+    "clear and understandable",
+    "editorially careful",
+    "helpful and specific",
+    "not overly promotional",
+    "aligned with the brand"
   ],
   "avoid_phrases": [
-    "garantiert perfekt",
-    "sensationell",
-    "einzigartig für alle",
-    "das müsst ihr unbedingt gesehen haben"
+    "guaranteed perfect",
+    "sensational",
+    "unique for everyone",
+    "you absolutely have to see this"
   ],
   "editorial_rules": [
-    "Keine Fakten erfinden.",
-    "Nur Informationen verwenden, die im Beitrag, in Kategorien, Tags, Checks oder extracted_facts vorhanden sind.",
-    "Wenn Inhalte veraltet wirken, in den redaktionellen Hinweisen deutlich markieren.",
-    "Wenn Werbekennzeichnung erkannt wurde, darf sie in Social-Media- oder Newsletter-Ausgaben nicht entfernt werden.",
-    "Wenn der Auszug wie ein Platzhalter wirkt, einen neuen redaktionellen Auszug vorschlagen.",
-    "Wenn Datumsangaben ohne Jahr gefunden wurden, dies als Verbesserungshinweis aufnehmen."
+    "Do not invent facts.",
+    "Only use information that is present in the post, categories, tags, checks or extracted_facts.",
+    "If content appears outdated, clearly mark this in the editorial improvement notes.",
+    "If advertising disclosure was detected, it must not be removed from social media or newsletter outputs.",
+    "If the excerpt appears to be a placeholder, suggest a new editorial excerpt.",
+    "If dates without a year were found, include this as an improvement note."
   ],
   "required_output": [
     "instagram_caption_variant_1_emotional",
@@ -358,7 +358,7 @@
     "include_hook": true,
     "include_cta": true,
     "newsletter_max_characters": 450,
-    "newsletter_style": "kurzer Teaser mit Nutzenversprechen"
+    "newsletter_style": "short teaser with value proposition"
   },
   "wordpress_checks": {
     "min_word_count": 450,
@@ -387,22 +387,22 @@
       {
         "min": 85,
         "max": 100,
-        "text": "Sehr gut vorbereitet"
+        "text": "Very well prepared"
       },
       {
         "min": 70,
         "max": 84,
-        "text": "Gut, kleine Optimierungen möglich"
+        "text": "Good, small optimizations possible"
       },
       {
         "min": 50,
         "max": 69,
-        "text": "Überarbeitung empfohlen"
+        "text": "Revision recommended"
       },
       {
         "min": 0,
         "max": 49,
-        "text": "Nicht bereit für Veröffentlichung/Social Push"
+        "text": "Not ready for publication/social push"
       }
     ]
   },

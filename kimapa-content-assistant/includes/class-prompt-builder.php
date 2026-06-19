@@ -59,7 +59,7 @@ class Prompt_Builder
                 'active_channels' => array_keys(array_filter($this->config->channels())),
             ],
             'task' => $texts['task'],
-            'output_language_instruction' => sprintf($texts['output_language'], $language),
+            'output_language_instruction' => $texts['output_language'],
             'input' => [
                 'title' => get_the_title($post),
                 'permalink' => get_permalink($post),
@@ -74,10 +74,7 @@ class Prompt_Builder
                 'extracted_facts' => $extracted_facts,
             ],
             'active_consistency_checks' => array_values((array) $this->config->get('content_consistency_checks', [])),
-            'brand_guidance' => [
-                'tone' => $this->config->get('brand_guidance.tone', $this->config->get('tone', [])),
-                'avoid_phrases' => $this->config->get('brand_guidance.avoid_phrases', $this->config->get('avoid_phrases', [])),
-            ],
+            'brand_guidance' => $this->localized_brand_guidance($language),
             'editorial_rules' => $this->localized_editorial_rules($texts, $language),
             'required_output' => $this->config->required_output(),
             'conditional_instructions' => array_values(array_filter([
@@ -96,13 +93,40 @@ class Prompt_Builder
         return wp_json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
+
+    private function localized_brand_guidance(string $language): array
+    {
+        if (strpos(strtolower($language), 'en') === 0) {
+            return [
+                'tone' => [
+                    'clear and understandable',
+                    'editorially careful',
+                    'helpful and specific',
+                    'not overly promotional',
+                    'aligned with the brand',
+                ],
+                'avoid_phrases' => [
+                    'guaranteed perfect',
+                    'sensational',
+                    'unique for everyone',
+                    'you absolutely have to see this',
+                ],
+            ];
+        }
+
+        return [
+            'tone' => $this->config->get('brand_guidance.tone', $this->config->get('tone', [])),
+            'avoid_phrases' => $this->config->get('brand_guidance.avoid_phrases', $this->config->get('avoid_phrases', [])),
+        ];
+    }
+
     private function prompt_texts(string $language): array
     {
         if (strpos(strtolower($language), 'en') === 0) {
             return [
                 'role' => 'You are an editorial content assistant for %s.',
                 'task' => 'Analyze the content and create structured suggestions for the active channels. Do not publish anything automatically.',
-                'output_language' => 'Write all generated output and editorial guidance in %s.',
+                'output_language' => 'Write all generated output, editorial feedback, warnings, and suggested social copy in English.',
                 'no_fabrication' => 'Do not invent facts.',
                 'content_incomplete' => 'If excerpt and content are empty or incomplete, do not invent concrete details. Create only general suggestions based on title, categories and checks, and clearly state that the article text is missing.',
                 'advertising_detected' => 'Advertising disclosure was detected. Do not remove it; keep #Anzeige or an appropriate disclosure visible in social media and newsletter suggestions.',
@@ -127,7 +151,7 @@ class Prompt_Builder
         return [
             'role' => 'Du bist ein redaktioneller Content Assistant für %s.',
             'task' => 'Analysiere den Beitrag und erstelle strukturierte Vorschläge für die aktivierten Kanäle. Veröffentliche nichts automatisch.',
-            'output_language' => 'Schreibe alle generierten Ausgaben und redaktionellen Hinweise in %s.',
+            'output_language' => 'Schreibe alle generierten Ausgaben, redaktionelles Feedback, Warnungen und Social-Copy-Vorschläge auf Deutsch.',
             'no_fabrication' => 'Keine Fakten erfinden.',
             'content_incomplete' => 'Wenn Auszug und Inhalt leer oder unvollständig sind, darfst du keine konkreten Details erfinden. Erstelle nur allgemeine Vorschläge auf Basis von Titel, Kategorien und Checks und weise deutlich darauf hin, dass der Beitragstext fehlt.',
             'advertising_detected' => 'Werbekennzeichnung wurde erkannt. Entferne sie nicht; halte #Anzeige oder eine geeignete Kennzeichnung in Social-Media- und Newsletter-Vorschlägen sichtbar.',
