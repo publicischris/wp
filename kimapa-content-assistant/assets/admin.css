@@ -1,17 +1,20 @@
-.kimapa-ca h4 { margin: 14px 0 6px; }
+.kimapa-ca h4 { margin: 12px 0 6px; }
 .kimapa-ca label { display: block; font-weight: 600; margin-bottom: 4px; }
-.kimapa-ca textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-.kimapa-ca-status { margin-top: 8px; color: #0a7f27; font-weight: 600; }
+.kimapa-ca textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; width: 100%; }
+.kimapa-ca .button-small { margin-top: 4px; }
+.kimapa-ca-status { margin: 8px 0; color: #0a7f27; font-weight: 600; }
 .kimapa-ca-status.is-error { color: #b32d2e; }
+.kimapa-ca-section { border: 1px solid #dcdcde; margin: 8px 0; padding: 8px; background: #fff; }
+.kimapa-ca-section > summary { cursor: pointer; font-weight: 700; }
 .kimapa-ca-score { background: #f0f6fc; border-left: 4px solid #2271b1; padding: 8px 10px; }
 .kimapa-ca-checks { margin: 0; }
 .kimapa-ca-checks li { border-bottom: 1px solid #dcdcde; margin: 0; padding: 8px 0; }
 .kimapa-ca-checks li.is-passed strong::before { color: #008a20; content: '✓ '; }
 .kimapa-ca-checks li.is-open strong::before { color: #d63638; content: '• '; }
 .kimapa-ca-checks span { color: #646970; }
+.kimapa-ca-field { margin: 10px 0; }
 .kimapa-ca-grid { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .kimapa-ca-grid p { margin: 0; }
 .kimapa-ca-grid input { width: 100%; }
-.kimapa-ca-debug { background: #f6f7f7; border: 1px solid #dcdcde; margin: 12px 0; padding: 8px; }
-.kimapa-ca-debug summary { cursor: pointer; font-weight: 600; }
+.kimapa-ca-debug { background: #f6f7f7; }
 .kimapa-ca-debug ul { margin: 8px 0 0 18px; }

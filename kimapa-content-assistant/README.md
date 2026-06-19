@@ -137,3 +137,94 @@ Administratoren sehen in der Meta Box eine einklappbare Debug-Ausgabe mit Rohinh
 3. In der Meta Box **Beitrag analysieren** klicken.
 4. Prüfen, ob der kopierbare JSON-Prompt `excerpt`, `content`, `content_word_count`, `content_extraction_status` und `content_extraction_warnings` enthält.
 5. Als Administrator die Debug-Ausgabe **Content-Extraktion Debug** öffnen und Rohinhalt, Länge, Wortanzahl und Excerpt-Quelle kontrollieren.
+
+## Erweiterter Copy/Paste-Workflow
+
+Die Meta Box ist in kompakte, einklappbare Bereiche gegliedert:
+
+- **Analyse**: Score und redaktionelle Checkliste.
+- **KI-Prompt**: kopierbarer JSON-Prompt.
+- **KI-Ergebnis einfügen**: Textarea für die Antwort aus dem KI-Tool und Button **KI-Ergebnis übernehmen**.
+- **Social Copy**: Caption, Caption-Varianten, Hook, CTA, Hashtags, Story, Carousel, Newsletter und redaktionelle Hinweise.
+- **Instagram Performance**: Referenzlink und manuell pflegbare Kennzahlen.
+- **Debug**: nur für Admins sichtbar.
+
+Für Prompt, Caption, Hashtags, CTA, Story-Idee, Carousel-Idee, Newsletter-Teaser und Instagram-Link stehen Copy-Buttons bereit. Das JavaScript nutzt die moderne Clipboard API und fällt bei älteren Browsern auf `document.execCommand( 'copy' )` zurück.
+
+### KI-Ergebnis-JSON übernehmen
+
+Ein gültiges KI-Ergebnis kann z. B. so aussehen:
+
+```json
+{
+  "instagram_caption_variant_1_emotional": "#Anzeige Familienzeit im Museum: Ein entspannter Ausflug für neugierige Kinder und Eltern...",
+  "instagram_caption_variant_2_practical": "#Anzeige Praktischer Ausflugstipp: Adresse, Zeiten und Altersangabe vor dem Besuch prüfen...",
+  "instagram_caption_variant_3_short": "#Anzeige Kurz gesagt: Ein schöner Indoor-Tipp für Familien.",
+  "hook": "Schlechtwettertag? Dieser Indoor-Tipp passt für Familien.",
+  "cta": "Speichert euch den Tipp für das nächste freie Wochenende.",
+  "hashtags": ["#KiMaPa", "#Familienausflug", "#Indoor", "#Anzeige"],
+  "story_idea": "Umfrage-Sticker: Museum oder Theater bei Regen?",
+  "carousel_idea": "Slide 1 Hook, Slide 2 Für wen geeignet, Slide 3 praktische Hinweise, Slide 4 CTA.",
+  "newsletter_teaser": "Ein kompakter Indoor-Tipp für Familien – mit Hinweis, welche Angaben vor dem Besuch geprüft werden sollten.",
+  "editorial_improvement_notes": ["Datumsangaben ohne Jahr ergänzen.", "Platzhalter-Auszug redaktionell ersetzen."]
+}
+```
+
+Beim Übernehmen wird vor dem Überschreiben vorhandener Felder eine Bestätigung angezeigt. Danach sollten die übernommenen Inhalte mit **Speichern** gesichert werden.
+
+## Erweiterte redaktionelle Checks und Fakten
+
+Der Analyzer erkennt zusätzlich:
+
+- Platzhalter-Excerpts wie „Lorem ipsum“ oder „Hier steht der Auszug“.
+- Potenziell veraltete Corona-/Hygiene-Hinweise.
+- Werbekennzeichnungen wie `#Anzeige`, `Werbung`, `Advertorial`, `Sponsored` oder `Kooperation`.
+- Relative Zeitbegriffe mit konkreter Liste der gefundenen Begriffe.
+- Datumsangaben ohne Jahr, z. B. „27. Juli bis 30. September“.
+- Indoor-/Outdoor-Hinweise aus Kategorien und Inhalt, damit Indoor-Beiträge beim Wettercheck nicht unnötig negativ bewertet werden.
+
+Der Prompt enthält außerdem `extracted_facts`, z. B.:
+
+```json
+{
+  "extracted_facts": {
+    "location": "München",
+    "address": "Beispielstraße 12, 80331 München",
+    "age_recommendation": "ab 6 Jahren",
+    "price_or_offer": "freier Eintritt",
+    "opening_hours_or_dates": "27. Juli bis 30. September",
+    "indoor_outdoor": "indoor",
+    "advertising_disclosure_detected": true,
+    "detected_relative_time_terms": ["aktuell", "in den Sommerferien"],
+    "detected_outdated_terms": ["Corona"],
+    "dates_without_year": ["27. Juli bis 30. September"],
+    "placeholder_excerpt_detected": true
+  }
+}
+```
+
+Die Extraktion ist heuristisch und erfindet keine Fakten. Wenn ein Wert nicht sicher erkannt wird, bleibt er leer oder als leere Liste erhalten.
+
+## Zusätzliche gespeicherte Post Meta
+
+- `_kimapa_extracted_facts`
+- `_kimapa_advertising_disclosure_detected`
+- `_kimapa_detected_relative_time_terms`
+- `_kimapa_detected_outdated_terms`
+- `_kimapa_placeholder_excerpt_detected`
+- `_kimapa_ai_result_raw`
+- `_kimapa_editorial_improvement_notes`
+- `_kimapa_instagram_caption_variant_1`
+- `_kimapa_instagram_caption_variant_2`
+- `_kimapa_instagram_caption_variant_3`
+- `_kimapa_hook`
+- `_kimapa_dates_without_year`
+
+## Testhinweise für die Erweiterung
+
+1. Beitrag mit Platzhalter-Auszug wie „Lorem ipsum“ analysieren und den Check `placeholder_excerpt` prüfen.
+2. Beitrag mit „Corona“, „derzeit geschlossen“ oder „Schutzmaßnahmen“ analysieren und den Hinweis auf veraltete Inhalte prüfen.
+3. Beitrag mit `#Anzeige` analysieren und prüfen, ob `advertising_disclosure_detected` im Prompt true ist und die Prompt-Regeln die Kennzeichnung erhalten.
+4. Beitrag mit „aktuell“, „derzeit“ oder „in den Sommerferien“ analysieren und prüfen, ob die konkreten Begriffe im Check und Debug-Bereich erscheinen.
+5. Beitrag mit „27. Juli bis 30. September“ ohne Jahr analysieren und den Check `dates_without_year` prüfen.
+6. Ein gültiges KI-Ergebnis-JSON in **KI-Ergebnis JSON einfügen** einfügen, **KI-Ergebnis übernehmen** klicken und anschließend **Speichern**.

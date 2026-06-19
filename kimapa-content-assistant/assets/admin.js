@@ -33,6 +33,49 @@
     return data;
   }
 
+  function getFieldValue($target) {
+    return $target.is('textarea, input') ? $target.val() : $target.text();
+  }
+
+  function fallbackCopy(text) {
+    var $tmp = $('<textarea readonly>').css({ position: 'fixed', top: '-9999px', left: '-9999px' }).val(text).appendTo('body');
+    $tmp[0].select();
+    var ok = false;
+    try {
+      ok = document.execCommand('copy');
+    } catch (e) {
+      ok = false;
+    }
+    $tmp.remove();
+    return ok ? Promise.resolve() : Promise.reject();
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text);
+    }
+    return fallbackCopy(text);
+  }
+
+  function normalizeAiResult(raw) {
+    var data = JSON.parse(raw);
+    return data.output || data.result || data;
+  }
+
+  function toText(value) {
+    if (Array.isArray(value)) {
+      return value.join('\n');
+    }
+    if (value && typeof value === 'object') {
+      return JSON.stringify(value, null, 2);
+    }
+    return value ? String(value) : '';
+  }
+
+  function setTextarea($box, name, value) {
+    $box.find('[name="' + name + '"]').val(toText(value));
+  }
+
   $(document).on('click', '.kimapa-ca-analyze', function () {
     var $button = $(this);
     var $box = $button.closest('.kimapa-ca');
@@ -72,5 +115,62 @@
     }).always(function () {
       $button.prop('disabled', false).text('Speichern');
     });
+  });
+
+  $(document).on('click', '.kimapa-ca-copy', function () {
+    var $button = $(this);
+    var $box = $button.closest('.kimapa-ca');
+    var $target = $box.find($button.data('copy-target'));
+    var text = getFieldValue($target);
+    if (!text) {
+      setStatus($box, 'Nichts zu kopieren.', true);
+      return;
+    }
+    var original = $button.text();
+    $button.prop('disabled', true);
+    copyText(text).then(function () {
+      $button.text(kimapaCA.i18n.copied);
+      setStatus($box, kimapaCA.i18n.copied, false);
+      window.setTimeout(function () {
+        $button.text(original).prop('disabled', false);
+      }, 1200);
+    }).catch(function () {
+      setStatus($box, kimapaCA.i18n.error, true);
+      $button.prop('disabled', false);
+    });
+  });
+
+  $(document).on('click', '.kimapa-ca-apply-ai-result', function () {
+    var $button = $(this);
+    var $box = $button.closest('.kimapa-ca');
+    var raw = $box.find('[name="_kimapa_ai_result_raw"]').val();
+    var data;
+
+    try {
+      data = normalizeAiResult(raw);
+    } catch (e) {
+      setStatus($box, kimapaCA.i18n.invalidJson, true);
+      return;
+    }
+
+    if (!window.confirm(kimapaCA.i18n.overwriteWarning)) {
+      return;
+    }
+
+    setTextarea($box, '_kimapa_instagram_caption', data.instagram_caption_variant_1_emotional || data.instagram_caption_variant_1 || data.caption || '');
+    setTextarea($box, '_kimapa_instagram_caption_variant_1', data.instagram_caption_variant_1_emotional || data.instagram_caption_variant_1 || '');
+    setTextarea($box, '_kimapa_instagram_caption_variant_2', data.instagram_caption_variant_2_practical || data.instagram_caption_variant_2 || '');
+    setTextarea($box, '_kimapa_instagram_caption_variant_3', data.instagram_caption_variant_3_short || data.instagram_caption_variant_3 || '');
+    setTextarea($box, '_kimapa_hook', data.hook || '');
+    setTextarea($box, '_kimapa_instagram_cta', data.cta || '');
+    setTextarea($box, '_kimapa_instagram_hashtags', data.hashtags || '');
+    setTextarea($box, '_kimapa_instagram_story_idea', data.story_idea || '');
+    setTextarea($box, '_kimapa_instagram_carousel_idea', data.carousel_idea || '');
+    setTextarea($box, '_kimapa_newsletter_teaser', data.newsletter_teaser || '');
+    setTextarea($box, '_kimapa_editorial_improvement_notes', data.editorial_improvement_notes || '');
+
+    $button.prop('disabled', true);
+    window.setTimeout(function () { $button.prop('disabled', false); }, 800);
+    setStatus($box, kimapaCA.i18n.applied, false);
   });
 })(jQuery);

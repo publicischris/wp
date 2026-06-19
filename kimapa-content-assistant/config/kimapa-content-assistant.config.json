@@ -18,49 +18,123 @@
     "featured_image_min_width": 1200,
     "featured_image_min_height": 800,
     "stale_after_days": 365,
-    "relative_time_terms": ["aktuell", "bald", "dieses Jahr", "demnächst", "zurzeit", "momentan", "in Kürze"]
+    "relative_time_terms": [
+      "aktuell",
+      "derzeit",
+      "momentan",
+      "bald",
+      "demnächst",
+      "dieses Jahr",
+      "letztes Jahr",
+      "zur Zeit",
+      "in den Sommerferien",
+      "im Herbst",
+      "im Winter",
+      "im Frühjahr",
+      "im Sommer"
+    ]
   },
   "content_consistency_checks": {
     "target_group": {
       "label": "Zielgruppe/Altersempfehlung erwähnt",
       "hint": "Hinweis: Alter, Zielgruppe oder Familienphase redaktionell prüfen.",
-      "keywords": ["Alter", "Jahre", "Kleinkind", "Baby", "Schulkind", "Teenager", "Familien", "Kinder"],
+      "keywords": [
+        "Alter",
+        "Jahre",
+        "Kleinkind",
+        "Baby",
+        "Schulkind",
+        "Teenager",
+        "Familien",
+        "Kinder"
+      ],
       "weight": 3
     },
     "location": {
       "label": "Ort/Region erwähnt",
       "hint": "Hinweis: Ort, Region oder Einzugsgebiet ergänzen, falls relevant.",
-      "keywords": ["Ort", "Region", "Adresse", "Stadt", "Landkreis", "Nähe"],
+      "keywords": [
+        "Ort",
+        "Region",
+        "Adresse",
+        "Stadt",
+        "Landkreis",
+        "Nähe"
+      ],
       "weight": 3
     },
     "costs": {
       "label": "Kosten/Preise erwähnt",
       "hint": "Hinweis: Kosten, Eintritt oder kostenlose Nutzung prüfen.",
-      "keywords": ["Kosten", "Preis", "Eintritt", "kostenlos", "Euro", "€", "Gebühr"],
+      "keywords": [
+        "Kosten",
+        "Preis",
+        "Eintritt",
+        "kostenlos",
+        "Euro",
+        "€",
+        "Gebühr"
+      ],
       "weight": 3
     },
     "opening_hours": {
       "label": "Öffnungszeiten erwähnt",
       "hint": "Hinweis: Öffnungszeiten oder Saisonzeiten prüfen.",
-      "keywords": ["Öffnungszeiten", "geöffnet", "Uhr", "Saison", "täglich"],
+      "keywords": [
+        "Öffnungszeiten",
+        "geöffnet",
+        "Uhr",
+        "Saison",
+        "täglich"
+      ],
       "weight": 2
     },
     "weather": {
       "label": "Wetterabhängigkeit erwähnt",
       "hint": "Hinweis: Indoor/Outdoor und Schlechtwetter-Eignung prüfen.",
-      "keywords": ["Wetter", "Regen", "Indoor", "Outdoor", "draußen", "drinnen"],
+      "keywords": [
+        "Wetter",
+        "Regen",
+        "Indoor",
+        "Outdoor",
+        "draußen",
+        "drinnen"
+      ],
       "weight": 2
     },
     "transport": {
       "label": "Anfahrt/Parken/ÖPNV erwähnt",
       "hint": "Hinweis: Anfahrt, Parken oder ÖPNV ergänzen, falls relevant.",
-      "keywords": ["Anfahrt", "Parken", "Parkplatz", "ÖPNV", "Bus", "Bahn", "Haltestelle"],
+      "keywords": [
+        "Anfahrt",
+        "Parken",
+        "Parkplatz",
+        "ÖPNV",
+        "Bus",
+        "Bahn",
+        "Haltestelle"
+      ],
       "weight": 2
     },
     "specific_dates": {
       "label": "Konkrete Aktualitätsangaben erwähnt",
       "hint": "Hinweis: Konkrete Daten statt relativer Zeitangaben verwenden.",
-      "keywords": ["2026", "2027", "Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"],
+      "keywords": [
+        "2026",
+        "2027",
+        "Januar",
+        "Februar",
+        "März",
+        "April",
+        "Mai",
+        "Juni",
+        "Juli",
+        "August",
+        "September",
+        "Oktober",
+        "November",
+        "Dezember"
+      ],
       "weight": 2
     }
   },
@@ -79,10 +153,26 @@
   },
   "scoring": {
     "labels": [
-      { "min": 85, "max": 100, "text": "Sehr gut vorbereitet" },
-      { "min": 70, "max": 84, "text": "Gut, kleine Optimierungen möglich" },
-      { "min": 50, "max": 69, "text": "Überarbeitung empfohlen" },
-      { "min": 0, "max": 49, "text": "Nicht bereit für Social Push" }
+      {
+        "min": 85,
+        "max": 100,
+        "text": "Sehr gut vorbereitet"
+      },
+      {
+        "min": 70,
+        "max": 84,
+        "text": "Gut, kleine Optimierungen möglich"
+      },
+      {
+        "min": 50,
+        "max": 69,
+        "text": "Überarbeitung empfohlen"
+      },
+      {
+        "min": 0,
+        "max": 49,
+        "text": "Nicht bereit für Social Push"
+      }
     ]
   },
   "future_services": {

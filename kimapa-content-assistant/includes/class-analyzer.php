@@ -23,24 +23,32 @@ class Analyzer
     {
         $post = get_post($post_id);
         if (!$post) {
-            return ['score' => 0, 'label' => __('Beitrag nicht gefunden', 'kimapa-content-assistant'), 'checks' => []];
+            return ['score' => 0, 'label' => __('Beitrag nicht gefunden', 'kimapa-content-assistant'), 'checks' => [], 'extracted_facts' => []];
         }
 
-        $checks = array_merge($this->wordpress_checks($post), $this->consistency_checks($post));
+        $extraction = $this->content_extractor->extract($post_id);
+        $categories = $this->category_names($post_id);
+        $facts = $this->extract_facts($post, $extraction, $categories);
+        $checks = array_merge($this->wordpress_checks($post, $extraction, $facts), $this->editorial_checks($post, $extraction, $facts), $this->consistency_checks($post, $extraction, $facts));
         $score = $this->calculate_score($checks);
 
         return [
             'score' => $score,
             'label' => $this->score_label($score),
             'checks' => $checks,
+            'extracted_facts' => $facts,
+            'advertising_disclosure_detected' => (bool) $facts['advertising_disclosure_detected'],
+            'detected_relative_time_terms' => $facts['detected_relative_time_terms'],
+            'detected_outdated_terms' => $facts['detected_outdated_terms'],
+            'dates_without_year' => $facts['dates_without_year'],
+            'placeholder_excerpt_detected' => (bool) $facts['placeholder_excerpt_detected'],
         ];
     }
 
-    private function wordpress_checks(\WP_Post $post): array
+    private function wordpress_checks(\WP_Post $post, array $extraction, array $facts): array
     {
         $post_id = (int) $post->ID;
-        $extraction = $this->content_extractor->extract($post_id);
-        $content = $extraction['content'];
+        $content = (string) $extraction['content'];
         $word_count = (int) $extraction['content_word_count'];
         $thumb_id = get_post_thumbnail_id($post_id);
         $image = $thumb_id ? wp_get_attachment_image_src($thumb_id, 'full') : false;
@@ -49,11 +57,12 @@ class Analyzer
         $min_height = (int) $this->config->get('wordpress_checks.featured_image_min_height', 800);
         $stale_days = (int) $this->config->get('wordpress_checks.stale_after_days', 365);
         $modified = get_post_modified_time('U', true, $post);
-        $relative_terms = (array) $this->config->get('wordpress_checks.relative_time_terms', ['aktuell', 'bald', 'dieses Jahr', 'demnächst']);
+        $relative_terms = $facts['detected_relative_time_terms'];
+        $featured_image_size_ok = $image && (int) $image[1] >= $min_width && (int) $image[2] >= $min_height;
 
         return [
             $this->check('featured_image', (bool) $thumb_id, __('Featured Image vorhanden', 'kimapa-content-assistant'), __('Bitte ein Beitragsbild setzen.', 'kimapa-content-assistant'), 12, 'error'),
-            $this->check('featured_image_size', $image && (int) $image[1] >= $min_width && (int) $image[2] >= $min_height, sprintf(__('Featured Image mindestens %1$dx%2$d px', 'kimapa-content-assistant'), $min_width, $min_height), __('Bildgröße für Social Media prüfen.', 'kimapa-content-assistant'), 8, 'warning'),
+            $this->check('featured_image_size', $featured_image_size_ok, sprintf(__('Featured Image mindestens %1$dx%2$d px', 'kimapa-content-assistant'), $min_width, $min_height), $thumb_id ? __('Featured Image vorhanden, aber für Social Media eventuell zu klein. Bitte größeres Bild prüfen.', 'kimapa-content-assistant') : __('Bitte ein ausreichend großes Beitragsbild setzen.', 'kimapa-content-assistant'), 8, 'warning'),
             $this->check('featured_image_alt', $thumb_id && trim((string) get_post_meta($thumb_id, '_wp_attachment_image_alt', true)) !== '', __('ALT-Text für Featured Image vorhanden', 'kimapa-content-assistant'), __('ALT-Text für Barrierefreiheit und SEO ergänzen.', 'kimapa-content-assistant'), 8, 'warning'),
             $this->check('excerpt', has_excerpt($post_id), __('Excerpt vorhanden', 'kimapa-content-assistant'), __('Kurzbeschreibung für Teaser und Newsletter ergänzen.', 'kimapa-content-assistant'), 8, 'warning'),
             $this->check('word_count', $word_count >= $min_words, sprintf(__('Beitragslänge ausreichend (%d Wörter)', 'kimapa-content-assistant'), $word_count), sprintf(__('Mindestens %d Wörter empfohlen.', 'kimapa-content-assistant'), $min_words), 8, 'warning'),
@@ -62,21 +71,134 @@ class Analyzer
             $this->check('internal_links', $this->has_internal_links($post->post_content), __('Interne Links vorhanden', 'kimapa-content-assistant'), __('Interne KiMaPa-Verlinkungen ergänzen.', 'kimapa-content-assistant'), 7, 'warning'),
             $this->check('headings', preg_match('/<h[2-4][^>]*>/i', $post->post_content) === 1, __('Zwischenüberschriften vorhanden', 'kimapa-content-assistant'), __('Struktur mit H2/H3-Überschriften verbessern.', 'kimapa-content-assistant'), 6, 'warning'),
             $this->check('freshness', !$modified || ((time() - $modified) / DAY_IN_SECONDS) <= $stale_days, __('Aktualität im Schwellenwert', 'kimapa-content-assistant'), sprintf(__('Letzte Aktualisierung ist älter als %d Tage.', 'kimapa-content-assistant'), $stale_days), 8, 'warning'),
-            $this->check('relative_time_terms', count($this->find_terms($content, $relative_terms)) === 0, __('Keine relativen Zeitbegriffe gefunden', 'kimapa-content-assistant'), sprintf(__('Relative Zeitbegriffe prüfen: %s', 'kimapa-content-assistant'), implode(', ', $this->find_terms($content, $relative_terms))), 6, 'notice'),
+            $this->check('relative_time_terms', count($relative_terms) === 0, __('Keine relativen Zeitbegriffe gefunden', 'kimapa-content-assistant'), count($relative_terms) > 0 ? sprintf(__('Relative Zeitbegriffe gefunden: %s. Bitte nach Möglichkeit durch konkrete Daten oder Jahresangaben ersetzen.', 'kimapa-content-assistant'), implode(', ', $relative_terms)) : __('Keine relativen Zeitbegriffe gefunden.', 'kimapa-content-assistant'), 6, 'notice', ['relative_time_terms_found' => $relative_terms]),
         ];
     }
 
-    private function consistency_checks(\WP_Post $post): array
+    private function editorial_checks(\WP_Post $post, array $extraction, array $facts): array
     {
-        $extraction = $this->content_extractor->extract((int) $post->ID);
+        $checks = [];
+        $checks[] = $this->check('placeholder_excerpt', !$facts['placeholder_excerpt_detected'], __('Auszug wirkt redaktionell', 'kimapa-content-assistant'), __('Der Auszug wirkt wie ein Platzhalter und sollte redaktionell ersetzt werden.', 'kimapa-content-assistant'), 5, 'warning', ['placeholder_excerpt_detected' => (bool) $facts['placeholder_excerpt_detected']]);
+        $checks[] = $this->check('potentially_outdated_covid_content', count($facts['detected_outdated_terms']) === 0, __('Keine möglichen veralteten Corona-/Hygiene-Hinweise gefunden', 'kimapa-content-assistant'), count($facts['detected_outdated_terms']) > 0 ? __('Der Beitrag enthält mögliche veraltete Corona-/Hygiene-Hinweise. Bitte redaktionell prüfen.', 'kimapa-content-assistant') : __('Keine potenziell veralteten Corona-/Hygiene-Hinweise gefunden.', 'kimapa-content-assistant'), 5, 'warning', ['detected_outdated_terms' => $facts['detected_outdated_terms']]);
+        $checks[] = $this->check('advertising_disclosure', true, __('Werbekennzeichnung', 'kimapa-content-assistant'), $facts['advertising_disclosure_detected'] ? __('Werbekennzeichnung erkannt. Bitte sicherstellen, dass die Kennzeichnung auch in Social-Media-Ausgaben sichtbar bleibt.', 'kimapa-content-assistant') : __('Keine Werbekennzeichnung erkannt.', 'kimapa-content-assistant'), 0, 'notice', ['advertising_disclosure_detected' => (bool) $facts['advertising_disclosure_detected']]);
+        $checks[] = $this->check('dates_without_year', count($facts['dates_without_year']) === 0, __('Datumsangaben mit Jahresbezug', 'kimapa-content-assistant'), count($facts['dates_without_year']) > 0 ? __('Datumsangaben ohne Jahr gefunden. Bitte prüfen, ob für langfristige Aktualität eine Jahresangabe ergänzt werden sollte.', 'kimapa-content-assistant') : __('Keine Datumsangaben ohne Jahr gefunden.', 'kimapa-content-assistant'), 4, 'notice', ['dates_without_year' => $facts['dates_without_year']]);
+        return $checks;
+    }
+
+    private function consistency_checks(\WP_Post $post, array $extraction, array $facts): array
+    {
         $content = $extraction['content'] . ' ' . $extraction['excerpt'];
         $items = (array) $this->config->get('content_consistency_checks', []);
         $checks = [];
         foreach ($items as $key => $item) {
             $terms = $item['keywords'] ?? [];
-            $checks[] = $this->check('consistency_' . sanitize_key((string) $key), count($this->find_terms($content, (array) $terms)) > 0, $item['label'] ?? (string) $key, $item['hint'] ?? __('Bitte redaktionell prüfen.', 'kimapa-content-assistant'), (int) ($item['weight'] ?? 2), 'notice');
+            $passed = count($this->find_terms($content, (array) $terms)) > 0;
+            $message = $item['hint'] ?? __('Bitte redaktionell prüfen.', 'kimapa-content-assistant');
+            if ((string) $key === 'weather' && $facts['indoor_outdoor'] === 'indoor') {
+                $passed = true;
+                $message = __('Indoor-/Schlechtwetter-Eignung erkannt.', 'kimapa-content-assistant');
+            }
+            $checks[] = $this->check('consistency_' . sanitize_key((string) $key), $passed, $item['label'] ?? (string) $key, $message, (int) ($item['weight'] ?? 2), 'notice');
         }
         return $checks;
+    }
+
+    public function extract_facts(\WP_Post $post, array $extraction, array $categories = []): array
+    {
+        $title = get_the_title($post);
+        $content = (string) $extraction['content'];
+        $haystack = trim($title . "\n" . $content . "\n" . (string) $extraction['excerpt']);
+        $category_text = implode(' ', $categories);
+        $relative_terms = (array) $this->config->get('wordpress_checks.relative_time_terms', []);
+        $outdated_terms = ['Corona', 'Pandemie', 'Hygiene- und Sicherheitskonzept', 'aufgrund der Auflagen', 'derzeit geschlossen', 'reduzierte Plätze', 'ohne Pause durchgespielt', 'Schutzmaßnahmen'];
+        $advertising_terms = ['#Anzeige', 'Anzeige', 'Werbung', 'Advertorial', 'Sponsored', 'Kooperation'];
+
+        return [
+            'location' => $this->first_match('/\b(?:in|bei|nahe|rund um)\s+([A-ZÄÖÜ][\p{L}ÄÖÜäöüß\-]+(?:\s+[A-ZÄÖÜ][\p{L}ÄÖÜäöüß\-]+){0,2})\b/u', $haystack),
+            'address' => $this->first_match('/\b([A-ZÄÖÜ][\p{L}ÄÖÜäöüß\.\- ]+\s+\d+[a-zA-Z]?(?:,?\s*\d{5}\s+[A-ZÄÖÜ][\p{L}ÄÖÜäöüß\- ]+)?)\b/u', $content),
+            'age_recommendation' => $this->first_match('/\b(?:ab\s+(?:\d+|[a-zäöüß]+)\s+Jahren|bis\s+\d+\s+Jahre|für\s+Kinder\s+(?:ab|von)\s+[^,.\n]+)\b/iu', $haystack),
+            'price_or_offer' => $this->first_match('/\b(?:kostenlos|freier Eintritt|Eintritt frei|\d+[,.]?\d*\s*€|\d+[,.]?\d*\s*Euro|ein Kind kostenlos)\b/iu', $haystack),
+            'opening_hours_or_dates' => $this->first_match('/\b(?:\d{1,2}\.\s*(?:Januar|Februar|März|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember)(?:\s+bis\s+\d{1,2}\.\s*(?:Januar|Februar|März|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember))?|\d{1,2}[:.]\d{2}\s*(?:Uhr)?|Öffnungszeiten[^.\n]*)\b/iu', $haystack),
+            'indoor_outdoor' => $this->detect_indoor_outdoor($haystack, $category_text),
+            'advertising_disclosure_detected' => count($this->find_terms($haystack, $advertising_terms)) > 0,
+            'detected_relative_time_terms' => $this->find_terms($haystack, $relative_terms),
+            'detected_outdated_terms' => $this->find_terms($haystack, $outdated_terms),
+            'dates_without_year' => $this->find_dates_without_year($haystack),
+            'placeholder_excerpt_detected' => $this->is_placeholder_excerpt((string) $extraction['excerpt'], $title, $content),
+        ];
+    }
+
+    private function is_placeholder_excerpt(string $excerpt, string $title, string $content): bool
+    {
+        $excerpt = trim($excerpt);
+        if ($excerpt === '') {
+            return false;
+        }
+
+        $placeholder_terms = ['und hier steht der Auszugstext', 'Lorem ipsum', 'Hier steht der Auszug', 'Dieser soll dem User einen schnellen Ein- und Überblick geben'];
+        if (count($this->find_terms($excerpt, $placeholder_terms)) > 0) {
+            return true;
+        }
+
+        $word_count = $this->content_extractor->word_count($excerpt);
+        if ($word_count < 8) {
+            return false;
+        }
+
+        $title_words = $this->significant_words($title);
+        $excerpt_words = $this->significant_words($excerpt);
+        $content_words = array_slice($this->significant_words($content), 0, 80);
+        $overlap = array_intersect($excerpt_words, array_unique(array_merge($title_words, $content_words)));
+
+        return $word_count <= 18 && count($overlap) === 0;
+    }
+
+    private function find_dates_without_year(string $content): array
+    {
+        preg_match_all('/\b\d{1,2}\.\s*(?:Januar|Februar|März|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember)(?:\s+bis\s+\d{1,2}\.\s*(?:Januar|Februar|März|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember))?/iu', $content, $matches, PREG_OFFSET_CAPTURE);
+        $found = [];
+        foreach ($matches[0] as $match) {
+            $text = $match[0];
+            $offset = (int) $match[1];
+            $context = mb_substr($content, max(0, $offset - 20), mb_strlen($text) + 40);
+            if (!preg_match('/\b20\d{2}\b/u', $context)) {
+                $found[] = trim($text);
+            }
+        }
+        return array_values(array_unique($found));
+    }
+
+    private function detect_indoor_outdoor(string $content, string $category_text): string
+    {
+        $combined = $category_text . ' ' . $content;
+        if (count($this->find_terms($combined, ['Indoor', 'Theater', 'Museum', 'Kino', 'drinnen', 'Schlechtwetter'])) > 0) {
+            return 'indoor';
+        }
+        if (count($this->find_terms($combined, ['Outdoor', 'draußen', 'Spielplatz', 'Park', 'Wanderung', 'See', 'Badesee'])) > 0) {
+            return 'outdoor';
+        }
+        return '';
+    }
+
+    private function category_names(int $post_id): array
+    {
+        $terms = wp_get_post_terms($post_id, 'category', ['fields' => 'names']);
+        return is_wp_error($terms) ? [] : $terms;
+    }
+
+    private function first_match(string $pattern, string $content): string
+    {
+        if (preg_match($pattern, $content, $matches)) {
+            return trim((string) ($matches[1] ?? $matches[0]));
+        }
+        return '';
+    }
+
+    private function significant_words(string $text): array
+    {
+        preg_match_all('/[\p{L}\p{N}]{4,}/u', mb_strtolower($text), $matches);
+        $stopwords = ['diese', 'dieser', 'dieses', 'einen', 'eine', 'einer', 'soll', 'user', 'schnellen', 'ueberblick', 'überblick', 'geben', 'steht', 'hier'];
+        return array_values(array_diff(array_unique($matches[0]), $stopwords));
     }
 
     private function calculate_score(array $checks): int
@@ -105,9 +227,9 @@ class Analyzer
         return __('Bewertung berechnet', 'kimapa-content-assistant');
     }
 
-    private function check(string $key, bool $passed, string $label, string $message, int $weight, string $severity): array
+    private function check(string $key, bool $passed, string $label, string $message, int $weight, string $severity, array $data = []): array
     {
-        return compact('key', 'passed', 'label', 'message', 'weight', 'severity');
+        return array_merge(compact('key', 'passed', 'label', 'message', 'weight', 'severity'), $data);
     }
 
     private function find_terms(string $content, array $terms): array
