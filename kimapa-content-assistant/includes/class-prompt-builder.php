@@ -60,6 +60,8 @@ class Prompt_Builder
             ],
             'task' => $texts['task'],
             'output_language_instruction' => $texts['output_language'],
+            'ai_usage' => $this->ai_usage_context($language),
+            'target_ai_provider' => $this->target_ai_provider(),
             'input' => [
                 'title' => get_the_title($post),
                 'permalink' => get_permalink($post),
@@ -93,6 +95,87 @@ class Prompt_Builder
         return wp_json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
+
+
+    private function ai_usage_context(string $language): array
+    {
+        $ai_usage = (array) $this->config->get('ai_usage', []);
+        $mode = $this->allowed_value((string) ($ai_usage['ai_mode'] ?? 'manual'), ['manual', 'api_prepared_inactive'], 'manual');
+        $provider = $this->allowed_value((string) ($ai_usage['preferred_ai_provider'] ?? 'generic'), array_keys($this->ai_provider_labels()), 'generic');
+        $policy = $this->allowed_value((string) ($ai_usage['ai_usage_policy'] ?? 'not_documented'), array_keys($this->ai_policy_notices($language)), 'not_documented');
+        $custom_note = trim((string) ($ai_usage['custom_ai_policy_note'] ?? ''));
+
+        return [
+            'mode' => $mode,
+            'provider' => $provider,
+            'policy' => $policy,
+            'policy_notice' => $this->policy_notice($policy, $custom_note, $language),
+        ];
+    }
+
+    private function target_ai_provider(): array
+    {
+        $provider = (string) $this->config->get('ai_usage.preferred_ai_provider', 'generic');
+        $labels = $this->ai_provider_labels();
+        if (!array_key_exists($provider, $labels)) {
+            $provider = 'generic';
+        }
+
+        return [
+            'id' => $provider,
+            'label' => $labels[$provider],
+        ];
+    }
+
+    private function ai_provider_labels(): array
+    {
+        return [
+            'generic' => 'Generic AI assistant',
+            'openai_chatgpt' => 'OpenAI / ChatGPT',
+            'anthropic_claude' => 'Anthropic Claude',
+            'google_gemini' => 'Google Gemini',
+            'microsoft_copilot' => 'Microsoft Copilot',
+            'custom_company_approved' => 'Custom / company-approved AI',
+        ];
+    }
+
+    private function policy_notice(string $policy, string $custom_note, string $language): string
+    {
+        if ($policy === 'custom_policy' && $custom_note !== '') {
+            return $custom_note;
+        }
+
+        $notices = $this->ai_policy_notices($language);
+        return $notices[$policy] ?? $notices['not_documented'];
+    }
+
+    private function ai_policy_notices(string $language): array
+    {
+        if (strpos(strtolower($language), 'de') === 0) {
+            return [
+                'not_documented' => 'Es wurde keine kundenspezifische Einschränkung zur KI-Nutzung im Plugin dokumentiert.',
+                'public_content_only' => 'Nutzen Sie diesen Prompt nur mit Inhalten, die bereits öffentlich oder zur Veröffentlichung freigegeben sind.',
+                'no_personal_data' => 'Kopieren Sie keine personenbezogenen Daten in externe KI-Tools. Prüfen und entfernen Sie personenbezogene Daten vor der Nutzung dieses Prompts.',
+                'no_confidential_content' => 'Kopieren Sie keine vertraulichen oder unveröffentlichten internen Informationen in externe KI-Tools.',
+                'company_approved_tools_only' => 'Nutzen Sie diesen Prompt ausschließlich in vom Kunden/Unternehmen freigegebenen KI-Tools.',
+                'custom_policy' => 'Für diesen Prompt ist eine kundenspezifische KI-Nutzungsrichtlinie vorgesehen. Bitte prüfen Sie die intern freigegebenen Hinweise, bevor Sie Inhalte in ein KI-Tool kopieren.',
+            ];
+        }
+
+        return [
+            'not_documented' => 'No customer-specific AI usage restriction has been documented in this plugin.',
+            'public_content_only' => 'Use this prompt only with content that is already public or approved for publication.',
+            'no_personal_data' => 'Do not copy personal data into external AI tools. Review and remove personal data before using this prompt.',
+            'no_confidential_content' => 'Do not copy confidential or unpublished internal information into external AI tools.',
+            'company_approved_tools_only' => 'Use this prompt only in AI tools approved by the customer/company.',
+            'custom_policy' => 'A custom AI usage policy is configured for this prompt. Review the approved internal guidance before copying content into an AI tool.',
+        ];
+    }
+
+    private function allowed_value(string $value, array $allowed, string $fallback): string
+    {
+        return in_array($value, $allowed, true) ? $value : $fallback;
+    }
 
     private function localized_brand_guidance(string $language): array
     {

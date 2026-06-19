@@ -115,6 +115,26 @@ The global prompt language setting is now a select with:
 
 Existing saved values such as `de`, `en`, `de_DE`, `en_US`, `Deutsch` or `English` are normalized when settings are saved.
 
+
+## AI provider and usage policy
+
+The settings page includes an **AI provider and usage policy** section for documentation only. It does not enable API calls, API keys, SDKs, background jobs or automatic publishing. The selected values are included in generated prompt JSON as:
+
+```json
+"ai_usage": {
+  "mode": "manual",
+  "provider": "generic",
+  "policy": "not_documented",
+  "policy_notice": "No customer-specific AI usage restriction has been documented in this plugin."
+},
+"target_ai_provider": {
+  "id": "generic",
+  "label": "Generic AI assistant"
+}
+```
+
+`policy_notice` follows the resolved prompt language, not the WordPress admin UI language.
+
 ## Content profiles / presets
 
 Prepared profiles:

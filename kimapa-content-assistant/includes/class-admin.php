@@ -113,6 +113,12 @@ class Admin
                     <label><input type="checkbox" name="channels[<?php echo esc_attr($key); ?>]" value="1" <?php checked(!empty($config['channels'][$key])); ?>> <?php echo esc_html__($label, 'kimapa-content-assistant'); ?></label><br>
                 <?php endforeach; ?>
 
+                <h2><?php esc_html_e('AI provider and usage policy', 'kimapa-content-assistant'); ?></h2>
+                <p class="description"><?php esc_html_e('These settings document the intended AI tool and usage policy for the manual copy/paste workflow. They do not enable API calls or automation.', 'kimapa-content-assistant'); ?></p>
+                <?php $this->settings_select('ai_usage[ai_mode]', __('AI mode', 'kimapa-content-assistant'), $config['ai_usage']['ai_mode'] ?? 'manual', $this->ai_mode_options()); ?>
+                <?php $this->settings_select('ai_usage[preferred_ai_provider]', __('Preferred AI provider', 'kimapa-content-assistant'), $config['ai_usage']['preferred_ai_provider'] ?? 'generic', $this->ai_provider_options()); ?>
+                <?php $this->settings_select('ai_usage[ai_usage_policy]', __('AI usage policy', 'kimapa-content-assistant'), $config['ai_usage']['ai_usage_policy'] ?? 'not_documented', $this->ai_policy_options()); ?>
+                <?php $this->settings_textarea('ai_usage[custom_ai_policy_note]', __('Custom AI policy note', 'kimapa-content-assistant'), $config['ai_usage']['custom_ai_policy_note'] ?? '', 4); ?>
 
                 <h2><?php esc_html_e('Structured fields / custom field mapping', 'kimapa-content-assistant'); ?></h2>
                 <p class="description"><?php esc_html_e('If your website already uses structured custom fields for addresses, coordinates or external links, enter the technical meta keys here. Content Assistant will prefer these values over automatic text detection.', 'kimapa-content-assistant'); ?></p>
@@ -415,6 +421,39 @@ class Admin
         echo '</select></label></p>';
     }
 
+
+
+    private function ai_mode_options(): array
+    {
+        return [
+            'manual' => __('Manual copy & paste only', 'kimapa-content-assistant'),
+            'api_prepared_inactive' => __('API automation prepared, inactive', 'kimapa-content-assistant'),
+        ];
+    }
+
+    private function ai_provider_options(): array
+    {
+        return [
+            'generic' => __('Generic AI assistant', 'kimapa-content-assistant'),
+            'openai_chatgpt' => __('OpenAI / ChatGPT', 'kimapa-content-assistant'),
+            'anthropic_claude' => __('Anthropic Claude', 'kimapa-content-assistant'),
+            'google_gemini' => __('Google Gemini', 'kimapa-content-assistant'),
+            'microsoft_copilot' => __('Microsoft Copilot', 'kimapa-content-assistant'),
+            'custom_company_approved' => __('Custom / company-approved AI', 'kimapa-content-assistant'),
+        ];
+    }
+
+    private function ai_policy_options(): array
+    {
+        return [
+            'not_documented' => __('No restriction documented', 'kimapa-content-assistant'),
+            'public_content_only' => __('Public content only', 'kimapa-content-assistant'),
+            'no_personal_data' => __('No personal data', 'kimapa-content-assistant'),
+            'no_confidential_content' => __('No confidential content', 'kimapa-content-assistant'),
+            'company_approved_tools_only' => __('Company-approved tools only', 'kimapa-content-assistant'),
+            'custom_policy' => __('Custom policy note', 'kimapa-content-assistant'),
+        ];
+    }
 
     private function language_options(): array
     {

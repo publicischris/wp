@@ -16,6 +16,12 @@
     "editorial_review": true,
     "debug": false
   },
+  "ai_usage": {
+    "ai_mode": "manual",
+    "preferred_ai_provider": "generic",
+    "ai_usage_policy": "not_documented",
+    "custom_ai_policy_note": ""
+  },
   "content_profiles": {
     "generic_editorial": {
       "label": "Generic Editorial",

@@ -148,6 +148,7 @@ class Config
                 'editorial_review' => !empty($data['channels']['editorial_review']),
                 'debug' => !empty($data['channels']['debug']),
             ],
+            'ai_usage' => $this->sanitize_ai_usage($data['ai_usage'] ?? []),
             'brand_guidance' => [
                 'tone' => $this->lines_to_array($data['brand_guidance']['tone'] ?? []),
                 'avoid_phrases' => $this->lines_to_array($data['brand_guidance']['avoid_phrases'] ?? []),
@@ -191,6 +192,25 @@ class Config
                     'terms' => $this->sanitize_assoc_terms($data['quality_checks']['typo_hints']['terms'] ?? $this->get('quality_checks.typo_hints.terms', $this->defaults_from_file()['quality_checks']['typo_hints']['terms'] ?? [])),
                 ],
             ],
+        ];
+    }
+
+
+    private function sanitize_ai_usage(array $data): array
+    {
+        $mode = sanitize_key($data['ai_mode'] ?? 'manual');
+        $provider = sanitize_key($data['preferred_ai_provider'] ?? 'generic');
+        $policy = sanitize_key($data['ai_usage_policy'] ?? 'not_documented');
+
+        $allowed_modes = ['manual', 'api_prepared_inactive'];
+        $allowed_providers = ['generic', 'openai_chatgpt', 'anthropic_claude', 'google_gemini', 'microsoft_copilot', 'custom_company_approved'];
+        $allowed_policies = ['not_documented', 'public_content_only', 'no_personal_data', 'no_confidential_content', 'company_approved_tools_only', 'custom_policy'];
+
+        return [
+            'ai_mode' => in_array($mode, $allowed_modes, true) ? $mode : 'manual',
+            'preferred_ai_provider' => in_array($provider, $allowed_providers, true) ? $provider : 'generic',
+            'ai_usage_policy' => in_array($policy, $allowed_policies, true) ? $policy : 'not_documented',
+            'custom_ai_policy_note' => sanitize_textarea_field($data['custom_ai_policy_note'] ?? ''),
         ];
     }
 
@@ -266,6 +286,7 @@ class Config
         return [
             'general' => ['plugin_name' => 'Content Assistant', 'brand_name' => 'Your Brand', 'portal_description' => 'Editorial website or content platform.', 'language' => 'auto', 'post_types' => ['post'], 'content_profile' => 'generic_editorial'],
             'channels' => ['instagram' => true, 'newsletter' => true, 'editorial_review' => true, 'debug' => true],
+            'ai_usage' => ['ai_mode' => 'manual', 'preferred_ai_provider' => 'generic', 'ai_usage_policy' => 'not_documented', 'custom_ai_policy_note' => ''],
             'brand_guidance' => ['tone' => ['clear and understandable'], 'avoid_phrases' => []],
             'tone' => ['clear and understandable'],
             'avoid_phrases' => [],
