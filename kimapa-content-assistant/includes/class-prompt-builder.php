@@ -34,6 +34,10 @@ class Prompt_Builder
         $advertising_detected = !empty($extracted_facts['advertising_disclosure_detected']);
         $placeholder_excerpt = !empty($extracted_facts['placeholder_excerpt_detected']);
         $dates_without_year = !empty($extracted_facts['dates_without_year']);
+        $structured_fields_enabled = (bool) $this->config->get('structured_fields.enabled', false);
+        $has_coordinates = !empty($extracted_facts['latitude']) && !empty($extracted_facts['longitude']);
+        $has_address = !empty($extracted_facts['address']);
+        $has_image_credit = !empty($extracted_facts['image_credit']);
 
         $payload = [
             'role' => sprintf('Du bist ein redaktioneller Content Assistant für %s.', (string) $this->config->get('general.brand_name', 'KiMaPa')),
@@ -69,6 +73,9 @@ class Prompt_Builder
                 $advertising_detected ? 'Werbekennzeichnung wurde erkannt. Entferne sie nicht; halte sie in Instagram Caption und Newsletter-Hinweisen sichtbar.' : '',
                 $placeholder_excerpt ? 'Der aktuelle Auszug wirkt wie ein Platzhalter. Schlage einen neuen redaktionellen Excerpt vor.' : '',
                 $dates_without_year ? 'Datumsangaben ohne Jahr wurden erkannt. Markiere dies als redaktionellen Verbesserungshinweis.' : '',
+                $structured_fields_enabled ? 'Strukturierte Felder wie Adresse, Koordinaten, Google Maps Link, externer Link und Bildquelle sind gegenüber unsicherem Content-Parsing zu bevorzugen.' : '',
+                ($has_coordinates && !$has_address) ? 'Koordinaten vorhanden, Adresse nicht angegeben. Erfinde keine Adresse aus Koordinaten.' : '',
+                $has_image_credit ? 'Bildquelle ist als redaktioneller Fact vorhanden, aber nicht automatisch in Instagram Caption einbauen, außer ausdrücklich gewünscht.' : '',
             ])),
             'format' => $this->config->get('format_settings', $this->config->get('output_formats', [])),
         ];

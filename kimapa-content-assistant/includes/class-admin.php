@@ -100,6 +100,17 @@ class Admin
                     <label><input type="checkbox" name="channels[<?php echo esc_attr($key); ?>]" value="1" <?php checked(!empty($config['channels'][$key])); ?>> <?php echo esc_html__($label, 'kimapa-content-assistant'); ?></label><br>
                 <?php endforeach; ?>
 
+
+                <h2><?php esc_html_e('Strukturierte Felder / Custom Field Mapping', 'kimapa-content-assistant'); ?></h2>
+                <p class="description"><?php esc_html_e('Wenn deine Website bereits strukturierte Custom Fields für Adressen, Koordinaten oder externe Links nutzt, kannst du hier die technischen Meta Keys eintragen. Der Content Assistant nutzt diese Werte dann bevorzugt vor der automatischen Texterkennung.', 'kimapa-content-assistant'); ?></p>
+                <p class="description"><?php esc_html_e('Wenn keine Meta Keys eingetragen sind, bleibt die automatische Erkennung aus dem Beitragstext aktiv.', 'kimapa-content-assistant'); ?></p>
+                <label><input type="checkbox" name="structured_fields[enabled]" value="1" <?php checked(!empty($config['structured_fields']['enabled'])); ?>> <?php esc_html_e('Strukturierte Standortfelder verwenden', 'kimapa-content-assistant'); ?></label><br>
+                <label><input type="checkbox" name="structured_fields[fallback_to_content_parsing]" value="1" <?php checked(!isset($config['structured_fields']['fallback_to_content_parsing']) || !empty($config['structured_fields']['fallback_to_content_parsing'])); ?>> <?php esc_html_e('Wenn strukturierte Felder leer sind, aus Beitragstext extrahieren', 'kimapa-content-assistant'); ?></label>
+                <?php foreach (['latitude' => 'Latitude Meta Key', 'longitude' => 'Longitude Meta Key', 'google_maps_link' => 'Google Maps Link Meta Key', 'street' => 'Straße Meta Key', 'zip' => 'PLZ Meta Key', 'city' => 'Ort Meta Key', 'external_link' => 'Externer Link Meta Key', 'image_credit' => 'Bildquelle Meta Key'] as $field => $label) : ?>
+                    <?php $this->settings_text('structured_fields[meta_keys][' . $field . ']', __($label, 'kimapa-content-assistant'), $config['structured_fields']['meta_keys'][$field] ?? ''); ?>
+                    <p class="description"><?php esc_html_e('Bitte den technischen Meta Key eintragen, nicht das sichtbare Label.', 'kimapa-content-assistant'); ?></p>
+                <?php endforeach; ?>
+
                 <h2><?php esc_html_e('Brand Guidance', 'kimapa-content-assistant'); ?></h2>
                 <?php $this->settings_textarea('brand_guidance[tone]', __('Tonalität (eine Zeile pro Eintrag)', 'kimapa-content-assistant'), implode("\n", (array) ($config['brand_guidance']['tone'] ?? $config['tone'] ?? [])), 6); ?>
                 <?php $this->settings_textarea('brand_guidance[avoid_phrases]', __('Zu vermeidende Formulierungen', 'kimapa-content-assistant'), implode("\n", (array) ($config['brand_guidance']['avoid_phrases'] ?? $config['avoid_phrases'] ?? [])), 5); ?>
@@ -165,6 +176,7 @@ class Admin
         if (!is_array($checks)) {
             $checks = [];
         }
+        $checks = $this->normalize_unicode_data($checks);
         $instagram_enabled = $this->config->is_channel_enabled('instagram');
         $newsletter_enabled = $this->config->is_channel_enabled('newsletter');
         $debug_enabled = $this->config->is_channel_enabled('debug');
@@ -293,6 +305,10 @@ class Admin
         $relative_terms = $this->decode_meta_array($meta['_kimapa_detected_relative_time_terms'] ?? '');
         $outdated_terms = $this->decode_meta_array($meta['_kimapa_detected_outdated_terms'] ?? '');
         $dates_without_year = $this->decode_meta_array($meta['_kimapa_dates_without_year'] ?? '');
+        $structured = $this->analyzer->get_structured_facts_from_meta($post_id);
+        $facts = json_decode((string) ($meta['_kimapa_extracted_facts'] ?? ''), true);
+        $facts = is_array($facts) ? $facts : [];
+        $meta_keys = $this->preview_post_meta_keys($post_id);
         ?>
         <details class="kimapa-ca-section kimapa-ca-debug">
             <summary><?php esc_html_e('Debug', 'kimapa-content-assistant'); ?></summary>
@@ -305,7 +321,12 @@ class Admin
                 <li><?php printf(esc_html__('Relative Zeitbegriffe gefunden: %s', 'kimapa-content-assistant'), esc_html($relative_terms ? implode(', ', $relative_terms) : '–')); ?></li>
                 <li><?php printf(esc_html__('Potenziell veraltete Begriffe gefunden: %s', 'kimapa-content-assistant'), esc_html($outdated_terms ? implode(', ', $outdated_terms) : '–')); ?></li>
                 <li><?php printf(esc_html__('Datumsangaben ohne Jahr gefunden: %s', 'kimapa-content-assistant'), esc_html($dates_without_year ? implode(', ', $dates_without_year) : '–')); ?></li>
+                <li><?php printf(esc_html__('Strukturierte Felder aktiviert: %s', 'kimapa-content-assistant'), esc_html($structured['enabled'] ? __('ja', 'kimapa-content-assistant') : __('nein', 'kimapa-content-assistant'))); ?></li>
+                <li><?php printf(esc_html__('Fallback auf Content Parsing: %s', 'kimapa-content-assistant'), esc_html($structured['fallback_to_content_parsing'] ? __('ja', 'kimapa-content-assistant') : __('nein', 'kimapa-content-assistant'))); ?></li>
+                <li><?php printf(esc_html__('Strukturierte Werte: %s', 'kimapa-content-assistant'), esc_html(wp_json_encode(array_intersect_key($structured, array_flip(['latitude','longitude','google_maps_link','street','zip','city','external_link','image_credit']))))); ?></li>
+                <li><?php printf(esc_html__('Facts Source: %s', 'kimapa-content-assistant'), esc_html(wp_json_encode($facts['facts_source'] ?? []))); ?></li>
             </ul>
+            <details><summary><?php esc_html_e('Vorhandene Post Meta Keys anzeigen', 'kimapa-content-assistant'); ?></summary><?php $this->render_meta_key_preview($meta_keys); ?></details>
         </details>
         <?php
     }
@@ -353,6 +374,49 @@ class Admin
             }
         }
         return __('Noch keine Analyse', 'kimapa-content-assistant');
+    }
+
+
+    private function normalize_unicode_data($value)
+    {
+        if (is_array($value)) {
+            return array_map([$this, 'normalize_unicode_data'], $value);
+        }
+        if (!is_string($value)) {
+            return $value;
+        }
+        return (string) preg_replace_callback('/\\\\?u([0-9a-fA-F]{4})/', static function ($matches) {
+            $decoded = json_decode('"\\u' . $matches[1] . '"');
+            return is_string($decoded) ? $decoded : $matches[0];
+        }, $value);
+    }
+
+    private function preview_post_meta_keys(int $post_id): array
+    {
+        $all = get_post_meta($post_id);
+        $preview = [];
+        foreach ($all as $key => $values) {
+            $value = is_array($values) ? reset($values) : $values;
+            if (is_array($value) || is_object($value)) {
+                $value = '[complex value]';
+            }
+            $preview[$key] = mb_substr((string) $value, 0, 80);
+        }
+        ksort($preview);
+        return $preview;
+    }
+
+    private function render_meta_key_preview(array $items): void
+    {
+        if (!$items) {
+            echo '<p class="description">' . esc_html__('Keine Post Meta Keys gefunden.', 'kimapa-content-assistant') . '</p>';
+            return;
+        }
+        echo '<ul class="kimapa-ca-meta-keys">';
+        foreach ($items as $key => $value) {
+            printf('<li><code>%1$s</code>: <span>%2$s</span></li>', esc_html((string) $key), esc_html((string) $value));
+        }
+        echo '</ul>';
     }
 
     private function render_checks(array $checks): void

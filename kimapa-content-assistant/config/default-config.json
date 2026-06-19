@@ -238,5 +238,19 @@
     "include_cta": true,
     "newsletter_max_characters": 450,
     "newsletter_style": "kurzer Teaser mit Nutzenversprechen"
+  },
+  "structured_fields": {
+    "enabled": false,
+    "fallback_to_content_parsing": true,
+    "meta_keys": {
+      "latitude": "",
+      "longitude": "",
+      "google_maps_link": "",
+      "street": "",
+      "zip": "",
+      "city": "",
+      "external_link": "",
+      "image_credit": ""
+    }
   }
 }

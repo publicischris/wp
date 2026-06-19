@@ -178,5 +178,19 @@
   "future_services": {
     "ai_api": "Prompt_Builder-Ausgabe kann später direkt an einen AI-Service übergeben werden.",
     "instagram_api": "Gespeicherte Instagram-Felder und Performance-Meta bilden die spätere Meta-API-Schnittstelle vor."
+  },
+  "structured_fields": {
+    "enabled": false,
+    "fallback_to_content_parsing": true,
+    "meta_keys": {
+      "latitude": "",
+      "longitude": "",
+      "google_maps_link": "",
+      "street": "",
+      "zip": "",
+      "city": "",
+      "external_link": "",
+      "image_credit": ""
+    }
   }
 }

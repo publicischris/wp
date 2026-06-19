@@ -339,3 +339,82 @@ In der Meta Box gibt es **Als Publication-History speichern**. Dieser Button erz
 - Eine KI-API kann später hinter dem `Prompt_Builder` ergänzt werden, indem dessen JSON-Payload an einen separaten Service übergeben wird.
 - Eine Social-/Meta-API kann später auf Basis der `Publications`-Tabelle arbeiten und Snapshots mit echten Publikationen/Metriken synchronisieren.
 - Die aktuelle Version bleibt absichtlich Copy/Paste-basiert und live-sicher.
+
+## Strukturierte Felder / Custom Field Mapping
+
+Unter **Content Assistant → Einstellungen** gibt es den Bereich **Strukturierte Felder / Custom Field Mapping**. Dort können technische WordPress-Meta-Keys hinterlegt werden, falls die Website bereits getrennte Felder für Koordinaten, Adresse, Links oder Bildquellen nutzt.
+
+Beispiel-Konfiguration:
+
+```json
+{
+  "structured_fields": {
+    "enabled": true,
+    "fallback_to_content_parsing": true,
+    "meta_keys": {
+      "latitude": "_latitude",
+      "longitude": "_longitude",
+      "google_maps_link": "_google_maps_link",
+      "street": "_street",
+      "zip": "_zip",
+      "city": "_city",
+      "external_link": "_external_link",
+      "image_credit": "_image_credit"
+    }
+  }
+}
+```
+
+Wichtig: In den Einstellungen müssen die technischen Meta Keys eingetragen werden, nicht die sichtbaren Feldlabels. Wenn keine Meta Keys eingetragen sind, bleibt die automatische Erkennung aus dem Beitragstext aktiv.
+
+### Priorität der Faktenquellen
+
+1. Strukturierte Custom Fields, wenn aktiviert und gefüllt.
+2. Heuristische Content-Extraktion, wenn `fallback_to_content_parsing` aktiv ist.
+3. Leere Werte, wenn weder Custom Fields noch Parsing sichere Werte liefern.
+
+Wenn `city` als Custom Field z. B. `Scheyern` enthält, wird `location` aus diesem Wert gesetzt und nicht durch unsichere Texttreffer wie „Sichtweite“ überschrieben. Wenn `street`, `zip` und `city` vorhanden sind, wird `address` als `Straße, PLZ Ort` zusammengesetzt. Wenn nur `zip` und `city` vorhanden sind, wird `address` als `PLZ Ort` gesetzt.
+
+### Beispiel für strukturierte `extracted_facts`
+
+```json
+{
+  "extracted_facts": {
+    "location": "Scheyern",
+    "region_or_nearby": "Pfaffenhofen",
+    "address": "Hochstraße 19, 85298 Scheyern",
+    "street": "Hochstraße 19",
+    "zip": "85298",
+    "city": "Scheyern",
+    "latitude": "48.5001",
+    "longitude": "11.4662",
+    "google_maps_link": "https://maps.google.com/...",
+    "external_link": "https://example.test/planetenweg",
+    "image_credit": "Gemeinde Scheyern",
+    "facts_source": {
+      "location": "custom_field",
+      "address": "custom_field",
+      "coordinates": "custom_field",
+      "external_link": "custom_field",
+      "image_credit": "custom_field"
+    }
+  }
+}
+```
+
+### Echte Meta Keys im WordPress-Backend finden
+
+- Öffne den betreffenden Beitrag als Administrator.
+- Klappe in der Meta Box **KiMaPa Content Assistant** den Bereich **Debug** auf.
+- Dort werden vorhandene Post-Meta-Keys mit gekürzten Beispielwerten angezeigt.
+- Trage den technischen Key in den Plugin-Einstellungen ein, z. B. `_latitude` statt dem sichtbaren Label „Latitude“.
+
+### Planetenweg-Beitrag erneut testen
+
+1. Im Beitrag den Debug-Bereich öffnen und die tatsächlichen Meta Keys für Latitude, Longitude, Straße, PLZ, Ort, Google Maps Link, externen Link und Bildquelle notieren.
+2. Unter **Content Assistant → Einstellungen** die strukturierten Felder aktivieren und die Meta Keys eintragen.
+3. Fallback auf Content Parsing aktiviert lassen.
+4. Den Planetenweg-Beitrag erneut analysieren.
+5. Im JSON-Prompt prüfen, ob `location` aus `city` kommt, `facts_source.location` auf `custom_field` steht und keine unsicheren Texttreffer wie „Sichtweite“ übernommen wurden.
+
+Koordinaten werden nur gelesen. Es findet kein Geocoding und kein externer Request statt.

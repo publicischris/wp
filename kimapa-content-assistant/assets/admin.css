@@ -22,3 +22,5 @@
 .kimapa-ca-history { margin: 8px 0 0; }
 .kimapa-ca-history li { border-bottom: 1px solid #dcdcde; padding: 6px 0; }
 .kimapa-ca-settings textarea.large-text { max-width: 820px; }
+.kimapa-ca-meta-keys { max-height: 180px; overflow: auto; }
+.kimapa-ca-meta-keys code { display: inline-block; max-width: 140px; overflow-wrap: anywhere; }

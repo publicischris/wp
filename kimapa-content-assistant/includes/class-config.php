@@ -142,6 +142,20 @@ class Config
                 'newsletter_max_characters' => max(1, absint($data['format_settings']['newsletter_max_characters'] ?? 450)),
                 'newsletter_style' => sanitize_text_field($data['format_settings']['newsletter_style'] ?? ''),
             ],
+            'structured_fields' => [
+                'enabled' => !empty($data['structured_fields']['enabled']),
+                'fallback_to_content_parsing' => !empty($data['structured_fields']['fallback_to_content_parsing']),
+                'meta_keys' => [
+                    'latitude' => sanitize_text_field($data['structured_fields']['meta_keys']['latitude'] ?? ''),
+                    'longitude' => sanitize_text_field($data['structured_fields']['meta_keys']['longitude'] ?? ''),
+                    'google_maps_link' => sanitize_text_field($data['structured_fields']['meta_keys']['google_maps_link'] ?? ''),
+                    'street' => sanitize_text_field($data['structured_fields']['meta_keys']['street'] ?? ''),
+                    'zip' => sanitize_text_field($data['structured_fields']['meta_keys']['zip'] ?? ''),
+                    'city' => sanitize_text_field($data['structured_fields']['meta_keys']['city'] ?? ''),
+                    'external_link' => sanitize_text_field($data['structured_fields']['meta_keys']['external_link'] ?? ''),
+                    'image_credit' => sanitize_text_field($data['structured_fields']['meta_keys']['image_credit'] ?? ''),
+                ],
+            ],
         ];
     }
 
@@ -182,6 +196,7 @@ class Config
             'editorial_rules' => ['Keine Fakten erfinden.'],
             'required_output' => ['suggested_excerpt', 'editorial_improvement_notes'],
             'format_settings' => ['preferred' => 'JSON', 'instagram_caption_variants' => 3, 'hashtag_count' => '8-15', 'include_hook' => true, 'include_cta' => true, 'newsletter_max_characters' => 450, 'newsletter_style' => ''],
+            'structured_fields' => ['enabled' => false, 'fallback_to_content_parsing' => true, 'meta_keys' => ['latitude' => '', 'longitude' => '', 'google_maps_link' => '', 'street' => '', 'zip' => '', 'city' => '', 'external_link' => '', 'image_credit' => '']],
             'wordpress_checks' => ['min_word_count' => 450, 'featured_image_min_width' => 1200, 'featured_image_min_height' => 800, 'stale_after_days' => 365, 'relative_time_terms' => []],
             'content_consistency_checks' => [],
             'scoring' => ['labels' => []],

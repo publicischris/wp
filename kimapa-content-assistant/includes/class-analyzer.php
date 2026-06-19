@@ -81,6 +81,16 @@ class Analyzer
         $checks[] = $this->check('placeholder_excerpt', !$facts['placeholder_excerpt_detected'], __('Auszug wirkt redaktionell', 'kimapa-content-assistant'), __('Der Auszug wirkt wie ein Platzhalter und sollte redaktionell ersetzt werden.', 'kimapa-content-assistant'), 5, 'warning', ['placeholder_excerpt_detected' => (bool) $facts['placeholder_excerpt_detected']]);
         $checks[] = $this->check('potentially_outdated_covid_content', count($facts['detected_outdated_terms']) === 0, __('Keine möglichen veralteten Corona-/Hygiene-Hinweise gefunden', 'kimapa-content-assistant'), count($facts['detected_outdated_terms']) > 0 ? __('Der Beitrag enthält mögliche veraltete Corona-/Hygiene-Hinweise. Bitte redaktionell prüfen.', 'kimapa-content-assistant') : __('Keine potenziell veralteten Corona-/Hygiene-Hinweise gefunden.', 'kimapa-content-assistant'), 5, 'warning', ['detected_outdated_terms' => $facts['detected_outdated_terms']]);
         $checks[] = $this->check('advertising_disclosure', true, __('Werbekennzeichnung', 'kimapa-content-assistant'), $facts['advertising_disclosure_detected'] ? __('Werbekennzeichnung erkannt. Bitte sicherstellen, dass die Kennzeichnung auch in Social-Media-Ausgaben sichtbar bleibt.', 'kimapa-content-assistant') : __('Keine Werbekennzeichnung erkannt.', 'kimapa-content-assistant'), 0, 'notice', ['advertising_disclosure_detected' => (bool) $facts['advertising_disclosure_detected']]);
+        $structured_enabled = (bool) $this->config->get('structured_fields.enabled', false);
+        if ($structured_enabled) {
+            $has_any_location_field = $facts['latitude'] !== '' || $facts['longitude'] !== '' || $facts['street'] !== '' || $facts['zip'] !== '' || $facts['city'] !== '' || $facts['google_maps_link'] !== '';
+            $checks[] = $this->check('structured_location_fields_available', $has_any_location_field, __('Strukturierte Standortfelder', 'kimapa-content-assistant'), $has_any_location_field ? __('Strukturierte Standortfelder erkannt.', 'kimapa-content-assistant') : __('Strukturierte Standortfelder sind aktiviert, aber leer.', 'kimapa-content-assistant'), 0, 'notice');
+            $address_complete = $facts['city'] !== '' || ($facts['zip'] !== '' && $facts['city'] !== '') || ($facts['street'] !== '' && $facts['zip'] !== '' && $facts['city'] !== '');
+            $checks[] = $this->check('structured_address_complete', $address_complete, __('Strukturierte Adresse', 'kimapa-content-assistant'), $address_complete ? __('Verwertbare strukturierte Adresse vorhanden.', 'kimapa-content-assistant') : __('Keine verwertbare strukturierte Adresse vorhanden.', 'kimapa-content-assistant'), 0, $address_complete ? 'notice' : 'warning');
+            $checks[] = $this->check('coordinates_available', $facts['latitude'] !== '' && $facts['longitude'] !== '', __('Koordinaten', 'kimapa-content-assistant'), ($facts['latitude'] !== '' && $facts['longitude'] !== '') ? __('Koordinaten vorhanden.', 'kimapa-content-assistant') : __('Keine vollständigen Koordinaten vorhanden.', 'kimapa-content-assistant'), 0, 'notice');
+            $checks[] = $this->check('external_link_available', $facts['external_link'] !== '', __('Externer Link', 'kimapa-content-assistant'), $facts['external_link'] !== '' ? __('Externer Link vorhanden.', 'kimapa-content-assistant') : __('Kein externer Link erkannt.', 'kimapa-content-assistant'), 0, 'notice');
+            $checks[] = $this->check('image_credit_available', $facts['image_credit'] !== '', __('Bildquelle', 'kimapa-content-assistant'), $facts['image_credit'] !== '' ? __('Bildquelle vorhanden.', 'kimapa-content-assistant') : __('Keine Bildquelle erkannt.', 'kimapa-content-assistant'), 0, 'notice');
+        }
         $checks[] = $this->check('dates_without_year', count($facts['dates_without_year']) === 0, __('Datumsangaben mit Jahresbezug', 'kimapa-content-assistant'), count($facts['dates_without_year']) > 0 ? __('Datumsangaben ohne Jahr gefunden. Bitte prüfen, ob für langfristige Aktualität eine Jahresangabe ergänzt werden sollte.', 'kimapa-content-assistant') : __('Keine Datumsangaben ohne Jahr gefunden.', 'kimapa-content-assistant'), 4, 'notice', ['dates_without_year' => $facts['dates_without_year']]);
         return $checks;
     }
@@ -112,18 +122,37 @@ class Analyzer
         $relative_terms = (array) $this->config->get('wordpress_checks.relative_time_terms', []);
         $outdated_terms = ['Corona', 'Pandemie', 'Hygiene- und Sicherheitskonzept', 'aufgrund der Auflagen', 'derzeit geschlossen', 'reduzierte Plätze', 'ohne Pause durchgespielt', 'Schutzmaßnahmen'];
         $advertising_terms = ['#Anzeige', 'Anzeige', 'Werbung', 'Advertorial', 'Sponsored', 'Kooperation'];
-        $address = $this->detect_address($content);
-        $address_location = $address ? $this->location_from_address($address) : '';
-        $region = $this->detect_region($haystack, $address_location);
-        $location = $address_location ?: $this->detect_location($haystack, $category_text, $region);
+        $structured = $this->get_structured_facts_from_meta((int) $post->ID);
+        $fallback = !empty($structured['fallback_to_content_parsing']);
+        $parsed_address = $fallback ? $this->detect_address($content) : '';
+        $parsed_location_from_address = $parsed_address ? $this->location_from_address($parsed_address) : '';
+        $region = $fallback ? $this->detect_region($haystack, $structured['city'] ?: $parsed_location_from_address) : '';
+        $parsed_location = $fallback ? ($parsed_location_from_address ?: $this->detect_location($haystack, $category_text, $region)) : '';
+        $address = $structured['address'] ?: $parsed_address;
+        $location = $structured['city'] ?: $parsed_location;
         $age = $this->detect_age_recommendation($haystack);
         $price = $this->detect_price_or_offer($haystack);
         $hours = $this->detect_opening_hours_or_dates($haystack);
+        $facts_source = [
+            'location' => $structured['city'] !== '' ? 'custom_field' : ($parsed_location !== '' ? 'content_parsing' : 'empty'),
+            'address' => $structured['address'] !== '' ? 'custom_field' : ($parsed_address !== '' ? 'content_parsing' : 'empty'),
+            'coordinates' => ($structured['latitude'] !== '' && $structured['longitude'] !== '') ? 'custom_field' : 'empty',
+            'external_link' => $structured['external_link'] !== '' ? 'custom_field' : 'empty',
+            'image_credit' => $structured['image_credit'] !== '' ? 'custom_field' : 'empty',
+        ];
 
         return [
             'location' => $location,
             'region_or_nearby' => $region,
             'address' => $address,
+            'street' => $structured['street'],
+            'zip' => $structured['zip'],
+            'city' => $structured['city'],
+            'latitude' => $structured['latitude'],
+            'longitude' => $structured['longitude'],
+            'google_maps_link' => $structured['google_maps_link'],
+            'external_link' => $structured['external_link'],
+            'image_credit' => $structured['image_credit'],
             'age_recommendation' => $age,
             'price_or_offer' => $price,
             'opening_hours_or_dates' => $hours,
@@ -133,14 +162,73 @@ class Analyzer
             'detected_outdated_terms' => $this->find_terms($haystack, $outdated_terms),
             'dates_without_year' => $this->find_dates_without_year($haystack),
             'placeholder_excerpt_detected' => $this->is_placeholder_excerpt((string) $extraction['excerpt'], $title, $content),
+            'facts_source' => $facts_source,
             'extracted_fact_confidence' => [
-                'location' => $location !== '' ? ($address_location ? 'high' : 'medium') : '',
-                'address' => $address !== '' ? 'high' : '',
+                'location' => $location !== '' ? ($facts_source['location'] === 'custom_field' ? 'high' : 'medium') : '',
+                'address' => $address !== '' ? ($facts_source['address'] === 'custom_field' ? 'high' : 'medium') : '',
                 'age_recommendation' => $age !== '' ? 'medium' : '',
                 'price_or_offer' => $price !== '' ? 'medium' : '',
                 'opening_hours_or_dates' => $hours !== '' ? 'medium' : '',
             ],
         ];
+    }
+
+    public function get_structured_facts_from_meta(int $post_id): array
+    {
+        $meta_keys = (array) $this->config->get('structured_fields.meta_keys', []);
+        $enabled = (bool) $this->config->get('structured_fields.enabled', false);
+        $fallback = (bool) $this->config->get('structured_fields.fallback_to_content_parsing', true);
+        $facts = [
+            'enabled' => $enabled,
+            'fallback_to_content_parsing' => $fallback,
+            'latitude' => '',
+            'longitude' => '',
+            'google_maps_link' => '',
+            'street' => '',
+            'zip' => '',
+            'city' => '',
+            'external_link' => '',
+            'image_credit' => '',
+            'address' => '',
+        ];
+        if (!$enabled) {
+            return $facts;
+        }
+        foreach (['latitude', 'longitude', 'google_maps_link', 'street', 'zip', 'city', 'external_link', 'image_credit'] as $field) {
+            $key = isset($meta_keys[$field]) ? trim((string) $meta_keys[$field]) : '';
+            if ($key === '') {
+                continue;
+            }
+            $raw = get_post_meta($post_id, $key, true);
+            if (is_array($raw) || is_object($raw)) {
+                $raw = wp_json_encode($raw);
+            }
+            $facts[$field] = $this->sanitize_structured_value($field, (string) $raw);
+        }
+        if ($facts['street'] !== '' && $facts['zip'] !== '' && $facts['city'] !== '') {
+            $facts['address'] = $facts['street'] . ', ' . $facts['zip'] . ' ' . $facts['city'];
+        } elseif ($facts['zip'] !== '' && $facts['city'] !== '') {
+            $facts['address'] = $facts['zip'] . ' ' . $facts['city'];
+        }
+        return $facts;
+    }
+
+    private function sanitize_structured_value(string $field, string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+        if (in_array($field, ['google_maps_link', 'external_link'], true)) {
+            return esc_url_raw($value);
+        }
+        if (in_array($field, ['latitude', 'longitude'], true)) {
+            return preg_match('/^-?\d{1,3}(?:\.\d+)?$/', $value) ? $value : '';
+        }
+        if ($field === 'zip') {
+            return preg_match('/^\d{5}$/', $value) ? $value : sanitize_text_field($value);
+        }
+        return sanitize_text_field($value);
     }
 
     private function detect_address(string $content): string
