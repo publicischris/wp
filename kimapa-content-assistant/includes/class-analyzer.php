@@ -91,6 +91,8 @@ class Analyzer
             $checks[] = $this->check('external_link_available', $facts['external_link'] !== '', __('Externer Link', 'kimapa-content-assistant'), $facts['external_link'] !== '' ? __('Externer Link vorhanden.', 'kimapa-content-assistant') : __('Kein externer Link erkannt.', 'kimapa-content-assistant'), 0, 'notice');
             $checks[] = $this->check('image_credit_available', $facts['image_credit'] !== '', __('Bildquelle', 'kimapa-content-assistant'), $facts['image_credit'] !== '' ? __('Bildquelle vorhanden.', 'kimapa-content-assistant') : __('Keine Bildquelle erkannt.', 'kimapa-content-assistant'), 0, 'notice');
         }
+        $checks[] = $this->check('internal_editorial_notes', !$facts['internal_editorial_notes_detected'], __('Interne Redaktionsnotizen', 'kimapa-content-assistant'), $facts['internal_editorial_notes_detected'] ? __('Mögliche interne Redaktionsnotizen oder unfertige Kommentarstellen gefunden. Bitte vor Veröffentlichung prüfen.', 'kimapa-content-assistant') : __('Keine internen Redaktionsnotizen erkannt.', 'kimapa-content-assistant'), 8, $facts['internal_editorial_notes_detected'] ? 'warning' : 'notice', ['detected_editorial_note_terms' => $facts['detected_editorial_note_terms'], 'detected_editorial_note_snippets' => $facts['detected_editorial_note_snippets']]);
+        $checks[] = $this->check('typo_or_spelling_hints', count($facts['detected_typo_hints']) === 0, __('Mögliche Tippfehler', 'kimapa-content-assistant'), count($facts['detected_typo_hints']) > 0 ? __('Mögliche Tippfehler oder auffällige Schreibweisen gefunden.', 'kimapa-content-assistant') : __('Keine konfigurierten Tippfehler-Hinweise gefunden.', 'kimapa-content-assistant'), 2, 'notice', ['detected_typo_hints' => $facts['detected_typo_hints']]);
         $checks[] = $this->check('dates_without_year', count($facts['dates_without_year']) === 0, __('Datumsangaben mit Jahresbezug', 'kimapa-content-assistant'), count($facts['dates_without_year']) > 0 ? __('Datumsangaben ohne Jahr gefunden. Bitte prüfen, ob für langfristige Aktualität eine Jahresangabe ergänzt werden sollte.', 'kimapa-content-assistant') : __('Keine Datumsangaben ohne Jahr gefunden.', 'kimapa-content-assistant'), 4, 'notice', ['dates_without_year' => $facts['dates_without_year']]);
         return $checks;
     }
@@ -133,6 +135,8 @@ class Analyzer
         $age = $this->detect_age_recommendation($haystack);
         $price = $this->detect_price_or_offer($haystack);
         $hours = $this->detect_opening_hours_or_dates($haystack);
+        $editorial_notes = $this->detect_internal_editorial_notes($content);
+        $typo_hints = $this->detect_typo_hints($content);
         $facts_source = [
             'location' => $structured['city'] !== '' ? 'custom_field' : ($parsed_location !== '' ? 'content_parsing' : 'empty'),
             'address' => $structured['address'] !== '' ? 'custom_field' : ($parsed_address !== '' ? 'content_parsing' : 'empty'),
@@ -162,6 +166,10 @@ class Analyzer
             'detected_outdated_terms' => $this->find_terms($haystack, $outdated_terms),
             'dates_without_year' => $this->find_dates_without_year($haystack),
             'placeholder_excerpt_detected' => $this->is_placeholder_excerpt((string) $extraction['excerpt'], $title, $content),
+            'internal_editorial_notes_detected' => count($editorial_notes['terms']) > 0 || count($editorial_notes['snippets']) > 0,
+            'detected_editorial_note_terms' => $editorial_notes['terms'],
+            'detected_editorial_note_snippets' => $editorial_notes['snippets'],
+            'detected_typo_hints' => $typo_hints,
             'facts_source' => $facts_source,
             'extracted_fact_confidence' => [
                 'location' => $location !== '' ? ($facts_source['location'] === 'custom_field' ? 'high' : 'medium') : '',
@@ -171,6 +179,82 @@ class Analyzer
                 'opening_hours_or_dates' => $hours !== '' ? 'medium' : '',
             ],
         ];
+    }
+
+    private function detect_internal_editorial_notes(string $content): array
+    {
+        if (empty($this->config->get('quality_checks.internal_editorial_notes.enabled', true))) {
+            return ['terms' => [], 'snippets' => []];
+        }
+        $terms = (array) $this->config->get('quality_checks.internal_editorial_notes.terms', []);
+        $max_snippets = (int) $this->config->get('quality_checks.internal_editorial_notes.max_snippets', 8);
+        $snippet_length = (int) $this->config->get('quality_checks.internal_editorial_notes.snippet_length', 160);
+        $found_terms = $this->find_terms($content, $terms);
+        $snippets = [];
+        foreach ($found_terms as $term) {
+            $snippets[] = $this->snippet_around($content, $term, $snippet_length);
+        }
+
+        if (preg_match_all('/\(([^)]{8,220})\)/u', $content, $matches)) {
+            foreach ($matches[1] as $match) {
+                if (preg_match('/(Vorschlag|prüfen|ergänzen|wenn ja|würde ich|\?)/iu', $match)) {
+                    $found_terms[] = mb_substr(trim($match), 0, 80);
+                    $snippets[] = $this->snippet_around($content, $match, $snippet_length);
+                }
+            }
+        }
+
+        $ellipsis_count = preg_match_all('/(?:\.\.\.+|…|\(…\))/u', $content, $ellipsis_matches, PREG_OFFSET_CAPTURE);
+        if ($ellipsis_count >= 2) {
+            $found_terms[] = '...';
+            foreach (array_slice($ellipsis_matches[0], 0, 3) as $match) {
+                $snippets[] = $this->snippet_at($content, (int) $match[1], $snippet_length);
+            }
+        } elseif ($ellipsis_count === 1 && preg_match('/(?:\([^)]*\.\.\.|\?[^.]{0,60}\.\.\.|(?:Vorschlag|prüfen|ergänzen)[^.]{0,80}\.\.\.)/iu', $content)) {
+            $found_terms[] = '...';
+            $snippets[] = $this->snippet_at($content, (int) $ellipsis_matches[0][0][1], $snippet_length);
+        }
+
+        if (preg_match_all('/\b(?:habt ihr hier[^?]*\?|soll das[^?]*\?|wie nennen wir[^?]*\?|ist das so richtig\?|wenn ja[^?.]*[?.])/iu', $content, $question_matches)) {
+            foreach ($question_matches[0] as $question) {
+                $found_terms[] = trim($question);
+                $snippets[] = $this->snippet_around($content, $question, $snippet_length);
+            }
+        }
+
+        return [
+            'terms' => array_values(array_unique(array_filter(array_map('trim', $found_terms)))),
+            'snippets' => array_slice(array_values(array_unique(array_filter($snippets))), 0, $max_snippets),
+        ];
+    }
+
+    private function detect_typo_hints(string $content): array
+    {
+        if (empty($this->config->get('quality_checks.typo_hints.enabled', true))) {
+            return [];
+        }
+        $terms = (array) $this->config->get('quality_checks.typo_hints.terms', []);
+        $found = [];
+        foreach ($terms as $typo => $suggestion) {
+            if ($typo !== '' && mb_stripos($content, (string) $typo) !== false) {
+                $found[] = ['found' => (string) $typo, 'suggestion' => (string) $suggestion];
+            }
+        }
+        return $found;
+    }
+
+    private function snippet_around(string $content, string $needle, int $length): string
+    {
+        $pos = mb_stripos($content, $needle);
+        return $this->snippet_at($content, false === $pos ? 0 : (int) $pos, $length);
+    }
+
+    private function snippet_at(string $content, int $pos, int $length): string
+    {
+        $start = max(0, $pos - (int) floor($length / 2));
+        $snippet = trim(mb_substr($content, $start, $length));
+        $snippet = preg_replace('/\s+/u', ' ', (string) $snippet);
+        return ($start > 0 ? '…' : '') . $snippet . (mb_strlen($content) > $start + $length ? '…' : '');
     }
 
     public function get_structured_facts_from_meta(int $post_id): array

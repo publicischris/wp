@@ -418,3 +418,52 @@ Wenn `city` als Custom Field z. B. `Scheyern` enthält, wird `location` aus dies
 5. Im JSON-Prompt prüfen, ob `location` aus `city` kommt, `facts_source.location` auf `custom_field` steht und keine unsicheren Texttreffer wie „Sichtweite“ übernommen wurden.
 
 Koordinaten werden nur gelesen. Es findet kein Geocoding und kein externer Request statt.
+
+## Interne Redaktionsnotizen und Arbeitsreste erkennen
+
+Der Analyzer ergänzt den Check `internal_editorial_notes`. Er sucht heuristisch nach typischen internen Arbeitsresten im bereinigten Beitragstext, z. B. `Mein Vorschlag`, `Anmerkung:`, `TODO`, `bitte prüfen`, `noch ergänzen`, `wenn ja, dann`, `würde ich es so schreiben`, `habt ihr`, auffälligen Klammer-Kommentaren und unfertig wirkenden Mehrfachpunkten.
+
+Wenn Treffer gefunden werden, enthält der Check neben den Begriffen auch kurze Snippets mit Kontext. Diese Snippets erscheinen in der Checkliste, im Debug-Bereich und im JSON-Prompt über `extracted_facts`.
+
+Beispiel-Check:
+
+```json
+{
+  "key": "internal_editorial_notes",
+  "passed": false,
+  "label": "Interne Redaktionsnotizen",
+  "message": "Mögliche interne Redaktionsnotizen oder unfertige Kommentarstellen gefunden. Bitte vor Veröffentlichung prüfen.",
+  "severity": "warning",
+  "detected_editorial_note_terms": ["Mein Vorschlag", "habt ihr hier geparkt?", "wenn ja, dann"],
+  "detected_editorial_note_snippets": [
+    "…Ein wundervoller Familienausflug: (Mein Vorschlag: Unsere Tour führte uns …)",
+    "…Parkplatz befindet sich direkt am Weg zum See (habt ihr hier geparkt? wenn ja, dann würde ich es so schreiben: …)"
+  ]
+}
+```
+
+Zusätzlich gibt es den einfachen Check `typo_or_spelling_hints`. Die Liste der Begriffe liegt in der aktiven Konfiguration unter `quality_checks.typo_hints.terms` und kann später über die Konfiguration erweitert werden.
+
+Beispiel für `extracted_facts`:
+
+```json
+{
+  "internal_editorial_notes_detected": true,
+  "detected_editorial_note_terms": ["Mein Vorschlag", "habt ihr"],
+  "detected_editorial_note_snippets": ["…(Mein Vorschlag: Unsere Tour führte uns …)"],
+  "detected_typo_hints": [
+    { "found": "Mautraße", "suggestion": "Mautstraße" }
+  ]
+}
+```
+
+### Sylvensteinspeicher-Beitrag erneut testen
+
+1. Beitrag öffnen und **Beitrag analysieren** klicken.
+2. Im Score-Bereich auf den kompakten Hinweis **Redaktionelle Arbeitsreste prüfen** achten.
+3. Die Checkliste öffnen und den Check **Interne Redaktionsnotizen** prüfen.
+4. Im Detailbereich die erkannten Begriffe und Snippets kontrollieren.
+5. Im JSON-Prompt prüfen, ob `internal_editorial_notes_detected`, `detected_editorial_note_terms` und `detected_editorial_note_snippets` gefüllt sind.
+6. Wichtig: Das Plugin ändert den Beitrag nicht automatisch; es gibt nur Hinweise und Prompt-Kontext aus.
+
+Die Begriffsliste kann in `quality_checks.internal_editorial_notes.terms` erweitert werden. Die Tippfehler-Hinweise können unter `quality_checks.typo_hints.terms` ergänzt werden, z. B. `"falsche Schreibweise": "Vorschlag"`.

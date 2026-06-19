@@ -192,5 +192,45 @@
       "external_link": "",
       "image_credit": ""
     }
+  },
+  "quality_checks": {
+    "internal_editorial_notes": {
+      "enabled": true,
+      "max_snippets": 8,
+      "snippet_length": 160,
+      "terms": [
+        "Mein Vorschlag",
+        "Vorschlag:",
+        "Anmerkung:",
+        "TODO",
+        "ToDo",
+        "To-do",
+        "prüfen",
+        "bitte prüfen",
+        "noch ergänzen",
+        "noch einfügen",
+        "hier ergänzen",
+        "hier einfügen",
+        "Platzhalter",
+        "Dummy",
+        "Lorem ipsum",
+        "wenn ja, dann",
+        "würde ich es so schreiben",
+        "habt ihr",
+        "könnt ihr",
+        "bitte noch",
+        "kommt noch",
+        "folgt noch"
+      ]
+    },
+    "typo_hints": {
+      "enabled": true,
+      "terms": {
+        "Mautraße": "Mautstraße",
+        "abegrissen": "abgerissen",
+        "denn See": "den See",
+        "Lenggies": "Lenggries"
+      }
+    }
   }
 }

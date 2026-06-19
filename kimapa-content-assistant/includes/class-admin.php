@@ -182,6 +182,7 @@ class Admin
         $debug_enabled = $this->config->is_channel_enabled('debug');
         $warnings = count(array_filter($checks, static function ($check) { return empty($check['passed']) && ($check['severity'] ?? '') === 'warning'; }));
         $notices = count(array_filter($checks, static function ($check) { return empty($check['passed']) && ($check['severity'] ?? '') === 'notice'; }));
+        $internal_notes_found = $this->check_has_findings($checks, 'internal_editorial_notes');
         $score_label = $this->score_label_from_score((int) $meta['_kimapa_content_score']);
         ?>
         <div class="kimapa-ca" data-post-id="<?php echo esc_attr((string) $post->ID); ?>">
@@ -193,6 +194,7 @@ class Admin
                 <button type="button" class="button button-primary button-small kimapa-ca-analyze"><?php esc_html_e('Beitrag analysieren', 'kimapa-content-assistant'); ?></button>
                 <div class="kimapa-ca-score"><strong><?php printf(esc_html__('Score: %s/100', 'kimapa-content-assistant'), esc_html($meta['_kimapa_content_score'] !== '' ? (string) $meta['_kimapa_content_score'] : '–')); ?></strong><br><span><?php echo esc_html($score_label); ?></span></div>
                 <p class="kimapa-ca-summary"><?php printf(esc_html__('%1$d Warnungen, %2$d Hinweise', 'kimapa-content-assistant'), absint($warnings), absint($notices)); ?></p>
+                <?php if ($internal_notes_found) : ?><p class="kimapa-ca-alert"><?php esc_html_e('Redaktionelle Arbeitsreste prüfen', 'kimapa-content-assistant'); ?></p><?php endif; ?>
             </details>
             <details class="kimapa-ca-section kimapa-ca-checklist">
                 <summary><?php esc_html_e('Checkliste anzeigen', 'kimapa-content-assistant'); ?></summary>
@@ -325,6 +327,8 @@ class Admin
                 <li><?php printf(esc_html__('Fallback auf Content Parsing: %s', 'kimapa-content-assistant'), esc_html($structured['fallback_to_content_parsing'] ? __('ja', 'kimapa-content-assistant') : __('nein', 'kimapa-content-assistant'))); ?></li>
                 <li><?php printf(esc_html__('Strukturierte Werte: %s', 'kimapa-content-assistant'), esc_html(wp_json_encode(array_intersect_key($structured, array_flip(['latitude','longitude','google_maps_link','street','zip','city','external_link','image_credit']))))); ?></li>
                 <li><?php printf(esc_html__('Facts Source: %s', 'kimapa-content-assistant'), esc_html(wp_json_encode($facts['facts_source'] ?? []))); ?></li>
+                <li><?php printf(esc_html__('Interne Notizen erkannt: %s', 'kimapa-content-assistant'), esc_html(!empty($facts['internal_editorial_notes_detected']) ? __('ja', 'kimapa-content-assistant') : __('nein', 'kimapa-content-assistant'))); ?></li>
+                <li><?php printf(esc_html__('Redaktionsnotiz-Begriffe: %s', 'kimapa-content-assistant'), esc_html(!empty($facts['detected_editorial_note_terms']) ? implode(', ', (array) $facts['detected_editorial_note_terms']) : '–')); ?></li>
             </ul>
             <details><summary><?php esc_html_e('Vorhandene Post Meta Keys anzeigen', 'kimapa-content-assistant'); ?></summary><?php $this->render_meta_key_preview($meta_keys); ?></details>
         </details>
@@ -377,6 +381,17 @@ class Admin
     }
 
 
+
+    private function check_has_findings(array $checks, string $key): bool
+    {
+        foreach ($checks as $check) {
+            if (($check['key'] ?? '') === $key && empty($check['passed'])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private function normalize_unicode_data($value)
     {
         if (is_array($value)) {
@@ -427,7 +442,29 @@ class Admin
         }
         foreach ($checks as $check) {
             $class = !empty($check['passed']) ? 'is-passed' : 'is-open';
-            printf('<li class="%1$s"><strong>%2$s</strong><br><span>%3$s</span></li>', esc_attr($class), esc_html((string) ($check['label'] ?? '')), esc_html((string) ($check['message'] ?? '')));
+            printf('<li class="%1$s"><strong>%2$s</strong><br><span>%3$s</span>', esc_attr($class), esc_html((string) ($check['label'] ?? '')), esc_html((string) ($check['message'] ?? '')));
+            $this->render_check_extra($check);
+            echo '</li>';
+        }
+    }
+
+
+    private function render_check_extra(array $check): void
+    {
+        foreach (['detected_editorial_note_terms' => __('Erkannte Begriffe', 'kimapa-content-assistant'), 'detected_editorial_note_snippets' => __('Ausschnitte', 'kimapa-content-assistant'), 'detected_typo_hints' => __('Tippfehler-Hinweise', 'kimapa-content-assistant')] as $field => $label) {
+            if (empty($check[$field]) || !is_array($check[$field])) {
+                continue;
+            }
+            echo '<details class="kimapa-ca-check-extra"><summary>' . esc_html($label) . '</summary><ul>';
+            foreach (array_slice($check[$field], 0, 10) as $item) {
+                if (is_array($item)) {
+                    $text = ($item['found'] ?? '') . ' → ' . ($item['suggestion'] ?? '');
+                } else {
+                    $text = (string) $item;
+                }
+                echo '<li>' . esc_html($text) . '</li>';
+            }
+            echo '</ul></details>';
         }
     }
 

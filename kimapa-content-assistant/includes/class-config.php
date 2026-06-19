@@ -156,6 +156,18 @@ class Config
                     'image_credit' => sanitize_text_field($data['structured_fields']['meta_keys']['image_credit'] ?? ''),
                 ],
             ],
+            'quality_checks' => [
+                'internal_editorial_notes' => [
+                    'enabled' => !isset($data['quality_checks']['internal_editorial_notes']['enabled']) || !empty($data['quality_checks']['internal_editorial_notes']['enabled']),
+                    'max_snippets' => max(1, absint($data['quality_checks']['internal_editorial_notes']['max_snippets'] ?? 8)),
+                    'snippet_length' => max(80, absint($data['quality_checks']['internal_editorial_notes']['snippet_length'] ?? 160)),
+                    'terms' => $this->lines_to_array($data['quality_checks']['internal_editorial_notes']['terms'] ?? $this->get('quality_checks.internal_editorial_notes.terms', $this->defaults_from_file()['quality_checks']['internal_editorial_notes']['terms'] ?? [])),
+                ],
+                'typo_hints' => [
+                    'enabled' => !isset($data['quality_checks']['typo_hints']['enabled']) || !empty($data['quality_checks']['typo_hints']['enabled']),
+                    'terms' => $this->sanitize_assoc_terms($data['quality_checks']['typo_hints']['terms'] ?? $this->get('quality_checks.typo_hints.terms', $this->defaults_from_file()['quality_checks']['typo_hints']['terms'] ?? [])),
+                ],
+            ],
         ];
     }
 
@@ -185,6 +197,30 @@ class Config
         return array_values(array_unique($items));
     }
 
+    private function sanitize_assoc_terms($value): array
+    {
+        $items = [];
+        if (is_string($value)) {
+            foreach (preg_split('/\R/u', $value) ?: [] as $line) {
+                if (strpos($line, '=>') !== false) {
+                    [$from, $to] = array_map('trim', explode('=>', $line, 2));
+                    if ($from !== '' && $to !== '') {
+                        $items[sanitize_text_field($from)] = sanitize_text_field($to);
+                    }
+                }
+            }
+            return $items;
+        }
+        foreach ((array) $value as $from => $to) {
+            $from = sanitize_text_field((string) $from);
+            $to = sanitize_text_field((string) $to);
+            if ($from !== '' && $to !== '') {
+                $items[$from] = $to;
+            }
+        }
+        return $items;
+    }
+
     private function fallback_defaults(): array
     {
         return [
@@ -197,6 +233,7 @@ class Config
             'required_output' => ['suggested_excerpt', 'editorial_improvement_notes'],
             'format_settings' => ['preferred' => 'JSON', 'instagram_caption_variants' => 3, 'hashtag_count' => '8-15', 'include_hook' => true, 'include_cta' => true, 'newsletter_max_characters' => 450, 'newsletter_style' => ''],
             'structured_fields' => ['enabled' => false, 'fallback_to_content_parsing' => true, 'meta_keys' => ['latitude' => '', 'longitude' => '', 'google_maps_link' => '', 'street' => '', 'zip' => '', 'city' => '', 'external_link' => '', 'image_credit' => '']],
+            'quality_checks' => ['internal_editorial_notes' => ['enabled' => true, 'max_snippets' => 8, 'snippet_length' => 160, 'terms' => ['Mein Vorschlag', 'Vorschlag:', 'Anmerkung:', 'TODO', 'ToDo', 'To-do', 'prüfen', 'bitte prüfen', 'noch ergänzen', 'noch einfügen', 'hier ergänzen', 'hier einfügen', 'Platzhalter', 'Dummy', 'Lorem ipsum', 'wenn ja, dann', 'würde ich es so schreiben', 'habt ihr', 'könnt ihr', 'bitte noch', 'kommt noch', 'folgt noch']], 'typo_hints' => ['enabled' => true, 'terms' => ['Mautraße' => 'Mautstraße', 'abegrissen' => 'abgerissen', 'denn See' => 'den See', 'Lenggies' => 'Lenggries']]],
             'wordpress_checks' => ['min_word_count' => 450, 'featured_image_min_width' => 1200, 'featured_image_min_height' => 800, 'stale_after_days' => 365, 'relative_time_terms' => []],
             'content_consistency_checks' => [],
             'scoring' => ['labels' => []],

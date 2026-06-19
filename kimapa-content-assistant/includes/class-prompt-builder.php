@@ -38,6 +38,7 @@ class Prompt_Builder
         $has_coordinates = !empty($extracted_facts['latitude']) && !empty($extracted_facts['longitude']);
         $has_address = !empty($extracted_facts['address']);
         $has_image_credit = !empty($extracted_facts['image_credit']);
+        $has_internal_notes = !empty($extracted_facts['internal_editorial_notes_detected']);
 
         $payload = [
             'role' => sprintf('Du bist ein redaktioneller Content Assistant für %s.', (string) $this->config->get('general.brand_name', 'KiMaPa')),
@@ -76,6 +77,7 @@ class Prompt_Builder
                 $structured_fields_enabled ? 'Strukturierte Felder wie Adresse, Koordinaten, Google Maps Link, externer Link und Bildquelle sind gegenüber unsicherem Content-Parsing zu bevorzugen.' : '',
                 ($has_coordinates && !$has_address) ? 'Koordinaten vorhanden, Adresse nicht angegeben. Erfinde keine Adresse aus Koordinaten.' : '',
                 $has_image_credit ? 'Bildquelle ist als redaktioneller Fact vorhanden, aber nicht automatisch in Instagram Caption einbauen, außer ausdrücklich gewünscht.' : '',
+                $has_internal_notes ? 'Interne Redaktionsnotizen oder unfertige Kommentarstellen wurden erkannt. Diese dürfen nicht in Social-Media- oder Newsletter-Texte übernommen werden. Weise in den redaktionellen Verbesserungshinweisen konkret darauf hin.' : '',
             ])),
             'format' => $this->config->get('format_settings', $this->config->get('output_formats', [])),
         ];
