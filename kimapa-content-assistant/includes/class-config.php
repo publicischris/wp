@@ -109,6 +109,28 @@ class Config
         return array_values(array_unique($output));
     }
 
+    public function apply_preset(string $profile): void
+    {
+        $config = $this->all();
+        $presets = (array) ($config['content_profiles'] ?? []);
+        if (empty($presets[$profile]) || !is_array($presets[$profile])) {
+            return;
+        }
+        $preset = $presets[$profile];
+        $config['general']['content_profile'] = $profile;
+        foreach (['brand_guidance', 'editorial_rules', 'content_consistency_checks', 'required_output', 'format_settings'] as $key) {
+            if (array_key_exists($key, $preset)) {
+                $config[$key] = $preset[$key];
+            }
+        }
+        if (isset($preset['brand_guidance'])) {
+            $config['tone'] = $preset['brand_guidance']['tone'] ?? [];
+            $config['avoid_phrases'] = $preset['brand_guidance']['avoid_phrases'] ?? [];
+        }
+        $this->data = $config;
+        update_option(self::OPTION_NAME, $config, false);
+    }
+
     public function sanitize(array $data): array
     {
         return [
@@ -118,6 +140,7 @@ class Config
                 'portal_description' => sanitize_textarea_field($data['general']['portal_description'] ?? ''),
                 'language' => sanitize_key($data['general']['language'] ?? 'de'),
                 'post_types' => $this->lines_to_array($data['general']['post_types'] ?? ['post'], 'sanitize_key'),
+                'content_profile' => sanitize_key($data['general']['content_profile'] ?? 'generic_editorial'),
             ],
             'channels' => [
                 'instagram' => !empty($data['channels']['instagram']),
@@ -224,10 +247,10 @@ class Config
     private function fallback_defaults(): array
     {
         return [
-            'general' => ['plugin_name' => 'KiMaPa Content Assistant', 'brand_name' => 'KiMaPa', 'portal_description' => '', 'language' => 'de', 'post_types' => ['post']],
+            'general' => ['plugin_name' => 'Content Assistant', 'brand_name' => 'Your Brand', 'portal_description' => 'Editorial website or content platform.', 'language' => 'de', 'post_types' => ['post'], 'content_profile' => 'generic_editorial'],
             'channels' => ['instagram' => true, 'newsletter' => true, 'editorial_review' => true, 'debug' => true],
-            'brand_guidance' => ['tone' => ['familiennah'], 'avoid_phrases' => []],
-            'tone' => ['familiennah'],
+            'brand_guidance' => ['tone' => ['klar und verständlich'], 'avoid_phrases' => []],
+            'tone' => ['klar und verständlich'],
             'avoid_phrases' => [],
             'editorial_rules' => ['Keine Fakten erfinden.'],
             'required_output' => ['suggested_excerpt', 'editorial_improvement_notes'],

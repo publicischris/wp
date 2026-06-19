@@ -1,18 +1,365 @@
 {
   "version": 1,
+  "general": {
+    "plugin_name": "Content Assistant",
+    "brand_name": "Your Brand",
+    "portal_description": "Editorial website or content platform.",
+    "language": "de",
+    "post_types": [
+      "post"
+    ],
+    "content_profile": "generic_editorial"
+  },
+  "channels": {
+    "instagram": true,
+    "newsletter": false,
+    "editorial_review": true,
+    "debug": false
+  },
+  "content_profiles": {
+    "generic_editorial": {
+      "label": "Generic Editorial",
+      "brand_guidance": {
+        "tone": [
+          "klar und verständlich",
+          "redaktionell sorgfältig",
+          "hilfreich und konkret",
+          "nicht übertrieben werblich",
+          "zur Marke passend"
+        ],
+        "avoid_phrases": [
+          "garantiert perfekt",
+          "sensationell",
+          "einzigartig für alle",
+          "das müsst ihr unbedingt gesehen haben"
+        ]
+      },
+      "editorial_rules": [
+        "Keine Fakten erfinden.",
+        "Nur Informationen verwenden, die im Beitrag, in Kategorien, Tags, Checks oder extracted_facts vorhanden sind.",
+        "Wenn Inhalte veraltet wirken, in den redaktionellen Hinweisen deutlich markieren.",
+        "Wenn Werbekennzeichnung erkannt wurde, darf sie in Social-Media- oder Newsletter-Ausgaben nicht entfernt werden.",
+        "Wenn der Auszug wie ein Platzhalter wirkt, einen neuen redaktionellen Auszug vorschlagen.",
+        "Wenn Datumsangaben ohne Jahr gefunden wurden, dies als Verbesserungshinweis aufnehmen."
+      ],
+      "content_consistency_checks": {},
+      "required_output": [
+        "instagram_caption_variant_1_emotional",
+        "instagram_caption_variant_2_practical",
+        "instagram_caption_variant_3_short",
+        "hook",
+        "cta",
+        "hashtags",
+        "story_idea",
+        "carousel_idea",
+        "suggested_excerpt",
+        "editorial_improvement_notes"
+      ],
+      "format_settings": {
+        "preferred": "JSON",
+        "instagram_caption_variants": 3,
+        "hashtag_count": "8-15",
+        "include_hook": true,
+        "include_cta": true,
+        "newsletter_max_characters": 450,
+        "newsletter_style": "kurzer Teaser mit Nutzenversprechen"
+      }
+    },
+    "local_family_events": {
+      "label": "Local / Family / Events",
+      "brand_guidance": {
+        "tone": [
+          "familiennah und warm",
+          "praktisch und alltagstauglich",
+          "verlässlich und redaktionell sorgfältig",
+          "klar, lokal und hilfreich"
+        ],
+        "avoid_phrases": [
+          "garantiert perfekt",
+          "sensationell",
+          "einzigartig für alle"
+        ]
+      },
+      "content_consistency_checks": {
+        "location": {
+          "label": "Ort/Region erwähnt",
+          "hint": "Hinweis: Ort, Region oder Einzugsgebiet ergänzen, falls relevant.",
+          "keywords": [
+            "Ort",
+            "Region",
+            "Adresse",
+            "Stadt",
+            "Landkreis",
+            "Nähe"
+          ],
+          "weight": 3
+        },
+        "target_group": {
+          "label": "Zielgruppe/Alter erwähnt",
+          "hint": "Hinweis: Alter, Zielgruppe oder Familienphase redaktionell prüfen.",
+          "keywords": [
+            "Alter",
+            "Jahre",
+            "Familien",
+            "Kinder"
+          ],
+          "weight": 3
+        },
+        "costs": {
+          "label": "Kosten/Preise erwähnt",
+          "hint": "Hinweis: Kosten, Eintritt oder kostenlose Nutzung prüfen.",
+          "keywords": [
+            "Kosten",
+            "Preis",
+            "Eintritt",
+            "kostenlos",
+            "Euro",
+            "€"
+          ],
+          "weight": 3
+        },
+        "opening_hours": {
+          "label": "Öffnungszeiten/Saisonzeiten erwähnt",
+          "hint": "Hinweis: Öffnungszeiten oder Saisonzeiten prüfen.",
+          "keywords": [
+            "Öffnungszeiten",
+            "geöffnet",
+            "Uhr",
+            "Saison"
+          ],
+          "weight": 2
+        },
+        "weather": {
+          "label": "Wetter/Indoor/Outdoor erwähnt",
+          "hint": "Hinweis: Indoor/Outdoor und Wetterabhängigkeit prüfen.",
+          "keywords": [
+            "Wetter",
+            "Regen",
+            "Indoor",
+            "Outdoor",
+            "draußen",
+            "drinnen"
+          ],
+          "weight": 2
+        },
+        "transport": {
+          "label": "Anfahrt/Parken/ÖPNV erwähnt",
+          "hint": "Hinweis: Anfahrt, Parken oder ÖPNV ergänzen.",
+          "keywords": [
+            "Anfahrt",
+            "Parken",
+            "Parkplatz",
+            "ÖPNV",
+            "Bus",
+            "Bahn"
+          ],
+          "weight": 2
+        }
+      },
+      "required_output": [
+        "instagram_caption_variant_1_emotional",
+        "instagram_caption_variant_2_practical",
+        "instagram_caption_variant_3_short",
+        "hook",
+        "cta",
+        "hashtags",
+        "story_idea",
+        "carousel_idea",
+        "newsletter_teaser",
+        "suggested_excerpt",
+        "editorial_improvement_notes"
+      ]
+    },
+    "b2b_corporate": {
+      "label": "B2B Corporate",
+      "brand_guidance": {
+        "tone": [
+          "professionell und klar",
+          "nutzenorientiert",
+          "vertrauenswürdig",
+          "präzise statt übertrieben werblich"
+        ],
+        "avoid_phrases": [
+          "sensationell",
+          "revolutionär",
+          "garantiert perfekt"
+        ]
+      },
+      "content_consistency_checks": {
+        "persona": {
+          "label": "Zielgruppe/Persona erwähnt",
+          "hint": "Persona, Branche oder Entscheiderrolle prüfen.",
+          "keywords": [
+            "Zielgruppe",
+            "Persona",
+            "Entscheider",
+            "Unternehmen",
+            "Kunden"
+          ],
+          "weight": 3
+        },
+        "value": {
+          "label": "Nutzenversprechen klar",
+          "hint": "Konkreten Nutzen oder Mehrwert prüfen.",
+          "keywords": [
+            "Nutzen",
+            "Mehrwert",
+            "Vorteil",
+            "Ergebnis",
+            "ROI"
+          ],
+          "weight": 3
+        },
+        "proof": {
+          "label": "Trust/Proof/Quelle erwähnt",
+          "hint": "Belege, Quellen, Cases oder Referenzen prüfen.",
+          "keywords": [
+            "Quelle",
+            "Studie",
+            "Case",
+            "Referenz",
+            "Beleg"
+          ],
+          "weight": 2
+        },
+        "cta": {
+          "label": "CTA vorhanden",
+          "hint": "Nächste Aktion oder Kontaktmöglichkeit prüfen.",
+          "keywords": [
+            "Kontakt",
+            "Download",
+            "Beratung",
+            "Demo",
+            "mehr erfahren"
+          ],
+          "weight": 2
+        }
+      }
+    },
+    "tech_it_saas": {
+      "label": "Tech / IT / SaaS",
+      "brand_guidance": {
+        "tone": [
+          "präzise und verständlich",
+          "technisch korrekt",
+          "nutzenorientiert",
+          "keine unbelegten Leistungsversprechen"
+        ],
+        "avoid_phrases": [
+          "100% sicher",
+          "garantiert ausfallsicher",
+          "revolutionär"
+        ]
+      },
+      "content_consistency_checks": {
+        "problem": {
+          "label": "Problem/Szenario klar",
+          "hint": "Problem, Use Case oder Szenario prüfen.",
+          "keywords": [
+            "Problem",
+            "Herausforderung",
+            "Szenario",
+            "Use Case"
+          ],
+          "weight": 3
+        },
+        "solution": {
+          "label": "Lösung/Nutzen klar",
+          "hint": "Lösung und Nutzen verständlich darstellen.",
+          "keywords": [
+            "Lösung",
+            "Nutzen",
+            "Vorteil",
+            "Service",
+            "Plattform"
+          ],
+          "weight": 3
+        },
+        "audience": {
+          "label": "Zielgruppe/Use Case klar",
+          "hint": "Zielgruppe, Rolle oder Use Case prüfen.",
+          "keywords": [
+            "Zielgruppe",
+            "IT",
+            "Admin",
+            "DevOps",
+            "Unternehmen"
+          ],
+          "weight": 2
+        },
+        "compliance": {
+          "label": "Quellen/Standards/Compliance erwähnt",
+          "hint": "Quellen, Standards oder Compliance-Hinweise prüfen, falls relevant.",
+          "keywords": [
+            "ISO",
+            "DSGVO",
+            "Compliance",
+            "Security",
+            "SLA",
+            "Standard"
+          ],
+          "weight": 2
+        }
+      }
+    }
+  },
+  "brand_guidance": {
+    "tone": [
+      "klar und verständlich",
+      "redaktionell sorgfältig",
+      "hilfreich und konkret",
+      "nicht übertrieben werblich",
+      "zur Marke passend"
+    ],
+    "avoid_phrases": [
+      "garantiert perfekt",
+      "sensationell",
+      "einzigartig für alle",
+      "das müsst ihr unbedingt gesehen haben"
+    ]
+  },
   "tone": [
-    "familiennah und warm",
-    "praktisch und alltagstauglich",
-    "verlässlich und redaktionell sorgfältig",
-    "positiv, aber nicht übertrieben werblich",
-    "klar, lokal und hilfreich für Eltern"
+    "klar und verständlich",
+    "redaktionell sorgfältig",
+    "hilfreich und konkret",
+    "nicht übertrieben werblich",
+    "zur Marke passend"
   ],
   "avoid_phrases": [
-    "Das müsst ihr unbedingt gesehen haben",
     "garantiert perfekt",
     "sensationell",
-    "einzigartig für alle Familien"
+    "einzigartig für alle",
+    "das müsst ihr unbedingt gesehen haben"
   ],
+  "editorial_rules": [
+    "Keine Fakten erfinden.",
+    "Nur Informationen verwenden, die im Beitrag, in Kategorien, Tags, Checks oder extracted_facts vorhanden sind.",
+    "Wenn Inhalte veraltet wirken, in den redaktionellen Hinweisen deutlich markieren.",
+    "Wenn Werbekennzeichnung erkannt wurde, darf sie in Social-Media- oder Newsletter-Ausgaben nicht entfernt werden.",
+    "Wenn der Auszug wie ein Platzhalter wirkt, einen neuen redaktionellen Auszug vorschlagen.",
+    "Wenn Datumsangaben ohne Jahr gefunden wurden, dies als Verbesserungshinweis aufnehmen."
+  ],
+  "required_output": [
+    "instagram_caption_variant_1_emotional",
+    "instagram_caption_variant_2_practical",
+    "instagram_caption_variant_3_short",
+    "hook",
+    "cta",
+    "hashtags",
+    "story_idea",
+    "carousel_idea",
+    "suggested_excerpt",
+    "editorial_improvement_notes"
+  ],
+  "format_settings": {
+    "preferred": "JSON",
+    "instagram_caption_variants": 3,
+    "hashtag_count": "8-15",
+    "include_hook": true,
+    "include_cta": true,
+    "newsletter_max_characters": 450,
+    "newsletter_style": "kurzer Teaser mit Nutzenversprechen"
+  },
   "wordpress_checks": {
     "min_word_count": 450,
     "featured_image_min_width": 1200,
@@ -34,123 +381,7 @@
       "im Sommer"
     ]
   },
-  "content_consistency_checks": {
-    "target_group": {
-      "label": "Zielgruppe/Altersempfehlung erwähnt",
-      "hint": "Hinweis: Alter, Zielgruppe oder Familienphase redaktionell prüfen.",
-      "keywords": [
-        "Alter",
-        "Jahre",
-        "Kleinkind",
-        "Baby",
-        "Schulkind",
-        "Teenager",
-        "Familien",
-        "Kinder"
-      ],
-      "weight": 3
-    },
-    "location": {
-      "label": "Ort/Region erwähnt",
-      "hint": "Hinweis: Ort, Region oder Einzugsgebiet ergänzen, falls relevant.",
-      "keywords": [
-        "Ort",
-        "Region",
-        "Adresse",
-        "Stadt",
-        "Landkreis",
-        "Nähe"
-      ],
-      "weight": 3
-    },
-    "costs": {
-      "label": "Kosten/Preise erwähnt",
-      "hint": "Hinweis: Kosten, Eintritt oder kostenlose Nutzung prüfen.",
-      "keywords": [
-        "Kosten",
-        "Preis",
-        "Eintritt",
-        "kostenlos",
-        "Euro",
-        "€",
-        "Gebühr"
-      ],
-      "weight": 3
-    },
-    "opening_hours": {
-      "label": "Öffnungszeiten erwähnt",
-      "hint": "Hinweis: Öffnungszeiten oder Saisonzeiten prüfen.",
-      "keywords": [
-        "Öffnungszeiten",
-        "geöffnet",
-        "Uhr",
-        "Saison",
-        "täglich"
-      ],
-      "weight": 2
-    },
-    "weather": {
-      "label": "Wetterabhängigkeit erwähnt",
-      "hint": "Hinweis: Indoor/Outdoor und Schlechtwetter-Eignung prüfen.",
-      "keywords": [
-        "Wetter",
-        "Regen",
-        "Indoor",
-        "Outdoor",
-        "draußen",
-        "drinnen"
-      ],
-      "weight": 2
-    },
-    "transport": {
-      "label": "Anfahrt/Parken/ÖPNV erwähnt",
-      "hint": "Hinweis: Anfahrt, Parken oder ÖPNV ergänzen, falls relevant.",
-      "keywords": [
-        "Anfahrt",
-        "Parken",
-        "Parkplatz",
-        "ÖPNV",
-        "Bus",
-        "Bahn",
-        "Haltestelle"
-      ],
-      "weight": 2
-    },
-    "specific_dates": {
-      "label": "Konkrete Aktualitätsangaben erwähnt",
-      "hint": "Hinweis: Konkrete Daten statt relativer Zeitangaben verwenden.",
-      "keywords": [
-        "2026",
-        "2027",
-        "Januar",
-        "Februar",
-        "März",
-        "April",
-        "Mai",
-        "Juni",
-        "Juli",
-        "August",
-        "September",
-        "Oktober",
-        "November",
-        "Dezember"
-      ],
-      "weight": 2
-    }
-  },
-  "output_formats": {
-    "preferred": "JSON",
-    "instagram": {
-      "caption_variants": 3,
-      "hashtag_count": "8-15",
-      "include_hook": true,
-      "include_cta": true
-    },
-    "newsletter": {
-      "max_characters": 450,
-      "style": "kurzer Teaser mit Nutzenversprechen"
-    }
-  },
+  "content_consistency_checks": {},
   "scoring": {
     "labels": [
       {
@@ -171,13 +402,9 @@
       {
         "min": 0,
         "max": 49,
-        "text": "Nicht bereit für Social Push"
+        "text": "Nicht bereit für Veröffentlichung/Social Push"
       }
     ]
-  },
-  "future_services": {
-    "ai_api": "Prompt_Builder-Ausgabe kann später direkt an einen AI-Service übergeben werden.",
-    "instagram_api": "Gespeicherte Instagram-Felder und Performance-Meta bilden die spätere Meta-API-Schnittstelle vor."
   },
   "structured_fields": {
     "enabled": false,

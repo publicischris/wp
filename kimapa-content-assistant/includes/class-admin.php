@@ -32,6 +32,7 @@ class Admin
         add_action('admin_menu', [$this, 'register_settings_page']);
         add_action('admin_post_kimapa_ca_save_settings', [$this, 'save_settings']);
         add_action('admin_post_kimapa_ca_reset_settings', [$this, 'reset_settings']);
+        add_action('admin_post_kimapa_ca_load_preset', [$this, 'load_preset']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_assets']);
         add_action('wp_ajax_kimapa_ca_analyze', [$this, 'ajax_analyze']);
         add_action('wp_ajax_kimapa_ca_save', [$this, 'ajax_save']);
@@ -41,7 +42,7 @@ class Admin
     public function add_meta_box(): void
     {
         foreach ((array) $this->config->get('general.post_types', ['post']) as $post_type) {
-            add_meta_box('kimapa-content-assistant', __('KiMaPa Content Assistant', 'kimapa-content-assistant'), [$this, 'render_meta_box'], $post_type, 'side', 'high');
+            add_meta_box('kimapa-content-assistant', __('Content Assistant', 'kimapa-content-assistant'), [$this, 'render_meta_box'], $post_type, 'side', 'high');
         }
     }
 
@@ -84,7 +85,7 @@ class Admin
         $config = $this->config->all();
         ?>
         <div class="wrap kimapa-ca-settings">
-            <h1><?php esc_html_e('KiMaPa Content Assistant Einstellungen', 'kimapa-content-assistant'); ?></h1>
+            <h1><?php esc_html_e('Content Assistant Einstellungen', 'kimapa-content-assistant'); ?></h1>
             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                 <?php wp_nonce_field('kimapa_ca_save_settings'); ?>
                 <input type="hidden" name="action" value="kimapa_ca_save_settings">
@@ -92,8 +93,10 @@ class Admin
                 <?php $this->settings_text('general[plugin_name]', __('Plugin-/Projektname', 'kimapa-content-assistant'), $config['general']['plugin_name'] ?? ''); ?>
                 <?php $this->settings_text('general[brand_name]', __('Portal-/Markenname', 'kimapa-content-assistant'), $config['general']['brand_name'] ?? ''); ?>
                 <?php $this->settings_textarea('general[portal_description]', __('Kurzbeschreibung des Portals', 'kimapa-content-assistant'), $config['general']['portal_description'] ?? '', 3); ?>
-                <?php $this->settings_text('general[language]', __('Standardsprache', 'kimapa-content-assistant'), $config['general']['language'] ?? 'de'); ?>
+                <?php $this->settings_text('general[language]', __('Prompt-/Output-Sprache', 'kimapa-content-assistant'), $config['general']['language'] ?? 'de'); ?>
+                <p class="description"><?php esc_html_e('Diese Sprache steuert die Prompt- und Ausgabe-Sprache der KI. Die Sprache der WordPress-Oberfläche richtet sich nach der WordPress-/Benutzersprache.', 'kimapa-content-assistant'); ?></p>
                 <?php $this->settings_textarea('general[post_types]', __('Default Post Types (eine Zeile pro Eintrag)', 'kimapa-content-assistant'), implode("\n", (array) ($config['general']['post_types'] ?? ['post'])), 3); ?>
+                <?php $this->settings_select('general[content_profile]', __('Content-Profil', 'kimapa-content-assistant'), $config['general']['content_profile'] ?? 'generic_editorial', $this->profile_options($config)); ?>
 
                 <h2><?php esc_html_e('Kanäle aktivieren', 'kimapa-content-assistant'); ?></h2>
                 <?php foreach (['instagram' => 'Instagram aktivieren', 'newsletter' => 'Newsletter aktivieren', 'editorial_review' => 'Redaktionelle Prüfung aktivieren', 'debug' => 'Debug-Bereich aktivieren'] as $key => $label) : ?>
@@ -134,6 +137,12 @@ class Admin
                 <textarea readonly class="large-text code" rows="14"><?php echo esc_textarea(wp_json_encode($this->config->all(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); ?></textarea>
                 <?php submit_button(__('Einstellungen speichern', 'kimapa-content-assistant')); ?>
             </form>
+            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" onsubmit="return confirm('Bestehende Konfiguration wird überschrieben. Fortfahren?');">
+                <?php wp_nonce_field('kimapa_ca_load_preset'); ?>
+                <input type="hidden" name="action" value="kimapa_ca_load_preset">
+                <?php $this->settings_select('preset', __('Preset laden', 'kimapa-content-assistant'), $config['general']['content_profile'] ?? 'generic_editorial', $this->profile_options($config)); ?>
+                <?php submit_button(__('Preset laden', 'kimapa-content-assistant'), 'secondary'); ?>
+            </form>
             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" onsubmit="return confirm('Konfiguration wirklich auf Defaults zurücksetzen?');">
                 <?php wp_nonce_field('kimapa_ca_reset_settings'); ?>
                 <input type="hidden" name="action" value="kimapa_ca_reset_settings">
@@ -162,6 +171,18 @@ class Admin
         check_admin_referer('kimapa_ca_reset_settings');
         $this->config->reset();
         wp_safe_redirect(admin_url('admin.php?page=kimapa-content-assistant&reset=1'));
+        exit;
+    }
+
+    public function load_preset(): void
+    {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('Keine Berechtigung.', 'kimapa-content-assistant'));
+        }
+        check_admin_referer('kimapa_ca_load_preset');
+        $preset = isset($_POST['preset']) ? sanitize_key(wp_unslash($_POST['preset'])) : 'generic_editorial';
+        $this->config->apply_preset($preset);
+        wp_safe_redirect(admin_url('admin.php?page=kimapa-content-assistant&preset=1'));
         exit;
     }
 
@@ -194,7 +215,7 @@ class Admin
                 <button type="button" class="button button-primary button-small kimapa-ca-analyze"><?php esc_html_e('Beitrag analysieren', 'kimapa-content-assistant'); ?></button>
                 <div class="kimapa-ca-score"><strong><?php printf(esc_html__('Score: %s/100', 'kimapa-content-assistant'), esc_html($meta['_kimapa_content_score'] !== '' ? (string) $meta['_kimapa_content_score'] : '–')); ?></strong><br><span><?php echo esc_html($score_label); ?></span></div>
                 <p class="kimapa-ca-summary"><?php printf(esc_html__('%1$d Warnungen, %2$d Hinweise', 'kimapa-content-assistant'), absint($warnings), absint($notices)); ?></p>
-                <?php if ($internal_notes_found) : ?><p class="kimapa-ca-alert"><?php esc_html_e('Redaktionelle Arbeitsreste prüfen', 'kimapa-content-assistant'); ?></p><?php endif; ?>
+                <?php if ($internal_notes_found) : ?><p class="kimapa-ca-alert"><?php esc_html_e('Interne Notizen prüfen', 'kimapa-content-assistant'); ?></p><?php endif; ?>
             </details>
             <details class="kimapa-ca-section kimapa-ca-checklist">
                 <summary><?php esc_html_e('Checkliste anzeigen', 'kimapa-content-assistant'); ?></summary>
@@ -368,6 +389,24 @@ class Admin
     private function settings_textarea(string $name, string $label, $value, int $rows): void
     {
         printf('<p><label><strong>%1$s</strong><br><textarea class="large-text" rows="%2$d" name="%3$s">%4$s</textarea></label></p>', esc_html($label), absint($rows), esc_attr($name), esc_textarea((string) $value));
+    }
+
+    private function settings_select(string $name, string $label, string $value, array $options): void
+    {
+        echo '<p><label><strong>' . esc_html($label) . '</strong><br><select name="' . esc_attr($name) . '">';
+        foreach ($options as $key => $option_label) {
+            printf('<option value="%1$s" %2$s>%3$s</option>', esc_attr($key), selected($value, $key, false), esc_html($option_label));
+        }
+        echo '</select></label></p>';
+    }
+
+    private function profile_options(array $config): array
+    {
+        $options = [];
+        foreach ((array) ($config['content_profiles'] ?? []) as $key => $profile) {
+            $options[$key] = (string) ($profile['label'] ?? $key);
+        }
+        return $options ?: ['generic_editorial' => 'Generic Editorial'];
     }
 
     private function score_label_from_score(int $score): string

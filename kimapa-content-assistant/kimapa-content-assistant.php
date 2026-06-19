@@ -1,9 +1,9 @@
 <?php
 /**
- * Plugin Name: KiMaPa Content Assistant
- * Description: Redaktionelle Beitragsanalyse, Social-Media-Prompt-Erstellung und manuelle Instagram-Performance-Dokumentation für KiMaPa.
+ * Plugin Name: Content Assistant
+ * Description: Redaktionelle Beitragsanalyse, KI-Prompt-Erstellung und manuelle Social-Media-Performance-Dokumentation.
  * Version: 0.1.0
- * Author: KiMaPa
+ * Author: Content Assistant
  * Text Domain: kimapa-content-assistant
  * Requires at least: 6.0
  * Requires PHP: 7.4
