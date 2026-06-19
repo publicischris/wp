@@ -1,0 +1,102 @@
+# KiMaPa Content Assistant
+
+WordPress-MVP-Plugin für das Familienportal KiMaPa. Das Plugin ergänzt den klassischen Beitragseditor um eine Meta Box, prüft Beiträge heuristisch, erzeugt einen kopierbaren KI-Prompt und speichert manuell eingetragene Instagram-Performance-Daten als Post Meta.
+
+## Dateien und Architektur
+
+```text
+kimapa-content-assistant/
+├── kimapa-content-assistant.php              # Plugin-Bootstrap und Konstanten
+├── includes/
+│   ├── class-plugin.php                      # Verdrahtung der Services
+│   ├── class-admin.php                       # Meta Box, Assets, AJAX-Endpunkte, Nonces, Capabilities
+│   ├── class-analyzer.php                    # WordPress- und Content-Konsistenz-Checks, Scoring
+│   ├── class-config.php                      # JSON-Konfigurationsloader mit Defaults
+│   ├── class-meta.php                        # Post-Meta-Lesen/Speichern und Sanitizing
+│   └── class-prompt-builder.php              # Strukturierter KI-Prompt aus Beitrag + Config
+├── assets/
+│   ├── admin.css                             # Admin-Layout der Meta Box
+│   └── admin.js                              # AJAX für Analyse und Speichern
+└── config/
+    └── kimapa-content-assistant.config.json  # Tonalität, Checks, Ausgabeformat, Scoring
+```
+
+Die Services sind bewusst getrennt, damit später ein eigener KI-Service oder ein Instagram/Meta-Service ergänzt werden kann, ohne die Meta-Box-Logik neu zu schreiben.
+
+## Installation
+
+1. Den Ordner `kimapa-content-assistant` nach `wp-content/plugins/` kopieren.
+2. Im WordPress-Backend unter **Plugins** das Plugin **KiMaPa Content Assistant** aktivieren.
+3. Einen klassischen WordPress-Beitrag öffnen.
+4. In der Meta Box **KiMaPa Content Assistant** auf **Beitrag analysieren** klicken.
+5. Den generierten Prompt kopieren und in ein KI-Tool einfügen.
+6. Vorschläge und Instagram-Performance-Daten manuell eintragen und mit **Speichern** sichern.
+
+## MVP-Funktionen
+
+- Admin Meta Box im Post Editor für klassische Posts.
+- AJAX-Analyse mit Nonce- und Capability-Prüfung.
+- JSON-Konfigurationsdatei für Tonalität, Checks, Ausgabeformat und Score-Labels.
+- Heuristische WordPress-Checks:
+  - Featured Image vorhanden und Mindestgröße erreicht.
+  - ALT-Text vorhanden.
+  - Excerpt vorhanden.
+  - Beitragslänge ausreichend.
+  - Kategorien und Tags vorhanden.
+  - Interne Links und Zwischenüberschriften vorhanden.
+  - Aktualität innerhalb des konfigurierten Schwellenwerts.
+  - Relative Zeitbegriffe gefunden.
+- Heuristische Content-Konsistenz-Hinweise für Zielgruppe, Region, Kosten, Öffnungszeiten, Wetter, Anfahrt und konkrete Aktualitätsangaben.
+- Score von 0 bis 100.
+- Strukturierter JSON-Prompt für manuelle KI-Nutzung.
+- Speicherung der geforderten Post-Meta-Felder.
+
+## Gespeicherte Post Meta
+
+- `_kimapa_content_score`
+- `_kimapa_content_checks`
+- `_kimapa_generated_prompt`
+- `_kimapa_instagram_caption`
+- `_kimapa_instagram_hashtags`
+- `_kimapa_instagram_cta`
+- `_kimapa_instagram_story_idea`
+- `_kimapa_instagram_carousel_idea`
+- `_kimapa_newsletter_teaser`
+- `_kimapa_instagram_url`
+- `_kimapa_instagram_likes`
+- `_kimapa_instagram_comments`
+- `_kimapa_instagram_shares`
+- `_kimapa_instagram_saves`
+- `_kimapa_instagram_reach`
+- `_kimapa_instagram_impressions`
+- `_kimapa_last_ai_analysis_at`
+
+## JSON-Konfiguration erweitern
+
+Die Konfiguration liegt unter `config/kimapa-content-assistant.config.json`.
+
+Typische Erweiterungen:
+
+- `tone`: zusätzliche Tonalitätsregeln für KiMaPa.
+- `avoid_phrases`: Formulierungen, die im Prompt als zu vermeiden übergeben werden.
+- `wordpress_checks`: Schwellenwerte wie Wortanzahl, Bildgröße oder Aktualitätsalter.
+- `content_consistency_checks`: neue heuristische Checks mit `label`, `hint`, `keywords` und `weight`.
+- `output_formats`: gewünschte Ausgabeformate für Instagram, Newsletter oder spätere Kanäle.
+- `scoring.labels`: andere Score-Grenzen und Labels.
+
+Neue Konsistenzchecks benötigen im MVP keinen PHP-Code, solange sie keywordbasiert funktionieren.
+
+## Vorbereitung für spätere APIs
+
+- **KI-API:** `includes/class-prompt-builder.php` liefert bereits eine strukturierte JSON-Payload. Später kann ein Service wie `class-ai-service.php` diese Payload an eine externe API senden und die Antwort auf die bestehenden Meta-Felder verteilen.
+- **Instagram/Meta-API:** `includes/class-meta.php` kapselt die Social- und Performance-Felder. Ein späterer Meta-Service kann hier gespeicherte URLs und Metriken synchronisieren.
+- **Weitere Post Types:** `includes/class-admin.php` registriert die Meta Box aktuell nur für `post`. Die Registrierung kann später um Custom Post Types erweitert oder aus der JSON-Konfiguration gelesen werden.
+
+## Sicherheit
+
+- AJAX-Endpunkte verwenden WordPress-Nonces.
+- Berechtigungen werden mit `current_user_can( 'edit_post', $post_id )` geprüft.
+- Eingaben werden sanitisiert (`sanitize_textarea_field`, `esc_url_raw`, `absint`).
+- Ausgaben in der Meta Box werden escaped.
+- Es sind keine API-Keys enthalten oder erforderlich.
+- Das MVP veröffentlicht nichts automatisch auf Instagram und ruft keine externe KI-API auf.
