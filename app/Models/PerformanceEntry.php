@@ -1,0 +1,1 @@
+<?php namespace App\Models; use Illuminate\Database\Eloquent\Model; class PerformanceEntry extends Model{protected $guarded=[]; public function campaign(){return $this->belongsTo(Campaign::class);} public static function ratings(){return ['weak'=>'schwach','normal'=>'normal','strong'=>'stark'];}}
