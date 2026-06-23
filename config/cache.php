@@ -1,0 +1,1 @@
+<?php return ['default'=>env('CACHE_STORE','database'),'stores'=>['database'=>['driver'=>'database','connection'=>env('DB_CONNECTION'),'table'=>'cache'],'file'=>['driver'=>'file','path'=>storage_path('framework/cache/data')]],'prefix'=>'cc'];

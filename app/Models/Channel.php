@@ -1,0 +1,1 @@
+<?php namespace App\Models; use Illuminate\Database\Eloquent\Model; class Channel extends Model{protected $guarded=[]; public function tenants(){return $this->belongsToMany(Tenant::class,'tenant_channel');} public function topics(){return $this->belongsToMany(Topic::class,'channel_topic');}}

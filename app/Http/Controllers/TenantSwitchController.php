@@ -1,0 +1,1 @@
+<?php namespace App\Http\Controllers; use Illuminate\Http\Request; class TenantSwitchController{function __invoke(Request $r){$id=$r->validate(['tenant_id'=>'required|exists:tenants,id'])['tenant_id']; abort_unless($r->user()->tenants()->where('tenants.id',$id)->exists(),403); $r->user()->update(['active_tenant_id'=>$id]); session(['active_tenant_id'=>$id]); return back();}}
