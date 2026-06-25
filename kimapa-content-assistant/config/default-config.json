@@ -59,7 +59,8 @@
         "story_idea",
         "carousel_idea",
         "suggested_excerpt",
-        "editorial_improvement_notes"
+        "editorial_improvement_notes",
+        "newsletter_teaser"
       ],
       "format_settings": {
         "preferred": "JSON",
@@ -355,7 +356,8 @@
     "story_idea",
     "carousel_idea",
     "suggested_excerpt",
-    "editorial_improvement_notes"
+    "editorial_improvement_notes",
+    "newsletter_teaser"
   ],
   "format_settings": {
     "preferred": "JSON",

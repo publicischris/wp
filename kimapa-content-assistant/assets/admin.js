@@ -188,7 +188,7 @@
     setTextarea($box, '_kimapa_instagram_hashtags', data.hashtags || '');
     setTextarea($box, '_kimapa_instagram_story_idea', data.story_idea || '');
     setTextarea($box, '_kimapa_instagram_carousel_idea', data.carousel_idea || '');
-    setTextarea($box, '_kimapa_newsletter_teaser', data.newsletter_teaser || '');
+    setTextarea($box, '_kimapa_newsletter_teaser', data.newsletter_teaser || (data.newsletter && data.newsletter.teaser) || '');
     setTextarea($box, '_kimapa_editorial_improvement_notes', data.editorial_improvement_notes || '');
 
     $button.prop('disabled', true);

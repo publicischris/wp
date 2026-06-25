@@ -82,26 +82,38 @@ class Config
     public function required_output(): array
     {
         $output = (array) $this->get('required_output', []);
-        if (!$this->is_channel_enabled('instagram')) {
-            $output = array_filter($output, static function ($field) {
-                return !in_array($field, ['instagram_caption_variant_1_emotional', 'instagram_caption_variant_2_practical', 'instagram_caption_variant_3_short', 'hook', 'cta', 'hashtags', 'story_idea', 'carousel_idea'], true);
+        $instagram_fields = ['instagram_caption_variant_1_emotional', 'instagram_caption_variant_2_practical', 'instagram_caption_variant_3_short', 'hook', 'cta', 'hashtags', 'story_idea', 'carousel_idea'];
+        $editorial_fields = ['suggested_excerpt', 'editorial_improvement_notes'];
+
+        if ($this->is_channel_enabled('instagram')) {
+            $output = array_merge($output, $instagram_fields);
+        } else {
+            $output = array_filter($output, static function ($field) use ($instagram_fields) {
+                return !in_array($field, $instagram_fields, true);
             });
         }
+
+        if ($this->is_channel_enabled('newsletter')) {
+            $output[] = 'newsletter_teaser';
+        } else {
+            $output = array_filter($output, static function ($field) {
+                return $field !== 'newsletter_teaser';
+            });
+        }
+
+        if ($this->is_channel_enabled('editorial_review')) {
+            $output = array_merge($output, $editorial_fields);
+        } else {
+            $output = array_filter($output, static function ($field) use ($editorial_fields) {
+                return !in_array($field, $editorial_fields, true);
+            });
+        }
+
         if (empty($this->get('format_settings.include_hook', true))) {
             $output = array_filter($output, static function ($field) { return $field !== 'hook'; });
         }
         if (empty($this->get('format_settings.include_cta', true))) {
             $output = array_filter($output, static function ($field) { return $field !== 'cta'; });
-        }
-        if (!$this->is_channel_enabled('newsletter')) {
-            $output = array_filter($output, static function ($field) {
-                return $field !== 'newsletter_teaser';
-            });
-        }
-        if (!$this->is_channel_enabled('editorial_review')) {
-            $output = array_filter($output, static function ($field) {
-                return !in_array($field, ['suggested_excerpt', 'editorial_improvement_notes'], true);
-            });
         }
         if (!$output) {
             $output = ['suggested_excerpt', 'editorial_improvement_notes'];
@@ -291,7 +303,7 @@ class Config
             'tone' => ['clear and understandable'],
             'avoid_phrases' => [],
             'editorial_rules' => ['Do not invent facts.'],
-            'required_output' => ['suggested_excerpt', 'editorial_improvement_notes'],
+            'required_output' => ['newsletter_teaser', 'suggested_excerpt', 'editorial_improvement_notes'],
             'format_settings' => ['preferred' => 'JSON', 'instagram_caption_variants' => 3, 'hashtag_count' => '8-15', 'include_hook' => true, 'include_cta' => true, 'newsletter_max_characters' => 450, 'newsletter_style' => ''],
             'structured_fields' => ['enabled' => false, 'fallback_to_content_parsing' => true, 'meta_keys' => ['latitude' => '', 'longitude' => '', 'google_maps_link' => '', 'street' => '', 'zip' => '', 'city' => '', 'external_link' => '', 'image_credit' => '']],
             'quality_checks' => ['internal_editorial_notes' => ['enabled' => true, 'max_snippets' => 8, 'snippet_length' => 160, 'terms' => ['Mein Vorschlag', 'Vorschlag:', 'Anmerkung:', 'TODO', 'ToDo', 'To-do', 'prüfen', 'bitte prüfen', 'noch ergänzen', 'noch einfügen', 'hier ergänzen', 'hier einfügen', 'Platzhalter', 'Dummy', 'Lorem ipsum', 'wenn ja, dann', 'würde ich es so schreiben', 'habt ihr', 'könnt ihr', 'bitte noch', 'kommt noch', 'folgt noch']], 'typo_hints' => ['enabled' => true, 'terms' => ['Mautraße' => 'Mautstraße', 'abegrissen' => 'abgerissen', 'denn See' => 'den See', 'Lenggies' => 'Lenggries']]],
