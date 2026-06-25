@@ -1,0 +1,471 @@
+{
+  "version": 1,
+  "general": {
+    "plugin_name": "Content Assistant",
+    "brand_name": "Your Brand",
+    "portal_description": "Editorial website or content platform.",
+    "language": "auto",
+    "post_types": [
+      "post"
+    ],
+    "content_profile": "generic_editorial"
+  },
+  "channels": {
+    "instagram": true,
+    "newsletter": false,
+    "editorial_review": true,
+    "debug": false
+  },
+  "ai_usage": {
+    "ai_mode": "manual",
+    "preferred_ai_provider": "generic",
+    "ai_usage_policy": "not_documented",
+    "custom_ai_policy_note": ""
+  },
+  "content_profiles": {
+    "generic_editorial": {
+      "label": "Generic Editorial",
+      "brand_guidance": {
+        "tone": [
+          "clear and understandable",
+          "editorially careful",
+          "helpful and specific",
+          "not overly promotional",
+          "aligned with the brand"
+        ],
+        "avoid_phrases": [
+          "guaranteed perfect",
+          "sensational",
+          "unique for everyone",
+          "you absolutely have to see this"
+        ]
+      },
+      "editorial_rules": [
+        "Do not invent facts.",
+        "Only use information that is present in the post, categories, tags, checks or extracted_facts.",
+        "If content appears outdated, clearly mark this in the editorial improvement notes.",
+        "If advertising disclosure was detected, it must not be removed from social media or newsletter outputs.",
+        "If the excerpt appears to be a placeholder, suggest a new editorial excerpt.",
+        "If dates without a year were found, include this as an improvement note."
+      ],
+      "content_consistency_checks": {},
+      "required_output": [
+        "instagram_caption_variant_1_emotional",
+        "instagram_caption_variant_2_practical",
+        "instagram_caption_variant_3_short",
+        "hook",
+        "cta",
+        "hashtags",
+        "story_idea",
+        "carousel_idea",
+        "suggested_excerpt",
+        "editorial_improvement_notes",
+        "newsletter_teaser"
+      ],
+      "format_settings": {
+        "preferred": "JSON",
+        "instagram_caption_variants": 3,
+        "hashtag_count": "8-15",
+        "include_hook": true,
+        "include_cta": true,
+        "newsletter_max_characters": 450,
+        "newsletter_style": "short teaser with value proposition"
+      }
+    },
+    "local_family_events": {
+      "label": "Local / Family / Events",
+      "brand_guidance": {
+        "tone": [
+          "warm and family-friendly",
+          "practical and suitable for everyday use",
+          "reliable and editorially careful",
+          "clear, local and helpful"
+        ],
+        "avoid_phrases": [
+          "guaranteed perfect",
+          "sensational",
+          "unique for everyone"
+        ]
+      },
+      "content_consistency_checks": {
+        "location": {
+          "label": "Location/region mentioned",
+          "hint": "Note: add location, region or catchment area if relevant.",
+          "keywords": [
+            "Ort",
+            "Region",
+            "Adresse",
+            "Stadt",
+            "Landkreis",
+            "nearby"
+          ],
+          "weight": 3
+        },
+        "target_group": {
+          "label": "Target group/age mentioned",
+          "hint": "Note: review age, target group or family phase editorially.",
+          "keywords": [
+            "Alter",
+            "Jahre",
+            "Familien",
+            "Kinder"
+          ],
+          "weight": 3
+        },
+        "costs": {
+          "label": "Costs/prices mentioned",
+          "hint": "Note: review costs, admission or free use.",
+          "keywords": [
+            "Kosten",
+            "Preis",
+            "Eintritt",
+            "kostenlos",
+            "Euro",
+            "€"
+          ],
+          "weight": 3
+        },
+        "opening_hours": {
+          "label": "Opening hours/seasonal times mentioned",
+          "hint": "Note: review opening hours or seasonal times.",
+          "keywords": [
+            "Öffnungszeiten",
+            "geöffnet",
+            "Uhr",
+            "Saison"
+          ],
+          "weight": 2
+        },
+        "weather": {
+          "label": "Weather/indoor/outdoor mentioned",
+          "hint": "Note: review indoor/outdoor and weather dependency.",
+          "keywords": [
+            "Wetter",
+            "Regen",
+            "Indoor",
+            "Outdoor",
+            "draußen",
+            "drinnen"
+          ],
+          "weight": 2
+        },
+        "transport": {
+          "label": "Directions/parking/public transport mentioned",
+          "hint": "Note: add directions, parking or public transport.",
+          "keywords": [
+            "Anfahrt",
+            "Parken",
+            "Parkplatz",
+            "ÖPNV",
+            "Bus",
+            "Bahn"
+          ],
+          "weight": 2
+        }
+      },
+      "required_output": [
+        "instagram_caption_variant_1_emotional",
+        "instagram_caption_variant_2_practical",
+        "instagram_caption_variant_3_short",
+        "hook",
+        "cta",
+        "hashtags",
+        "story_idea",
+        "carousel_idea",
+        "newsletter_teaser",
+        "suggested_excerpt",
+        "editorial_improvement_notes"
+      ]
+    },
+    "b2b_corporate": {
+      "label": "B2B Corporate",
+      "brand_guidance": {
+        "tone": [
+          "professionell und klar",
+          "benefit-oriented",
+          "trustworthy",
+          "precise instead of overly promotional"
+        ],
+        "avoid_phrases": [
+          "sensational",
+          "revolutionary",
+          "guaranteed perfect"
+        ]
+      },
+      "content_consistency_checks": {
+        "persona": {
+          "label": "Target audience/persona mentioned",
+          "hint": "Review persona, industry or decision-maker role.",
+          "keywords": [
+            "Zielgruppe",
+            "Persona",
+            "Entscheider",
+            "Unternehmen",
+            "Kunden"
+          ],
+          "weight": 3
+        },
+        "value": {
+          "label": "Nutzenversprechen klar",
+          "hint": "Review concrete benefit or added value.",
+          "keywords": [
+            "Nutzen",
+            "Mehrwert",
+            "Vorteil",
+            "Ergebnis",
+            "ROI"
+          ],
+          "weight": 3
+        },
+        "proof": {
+          "label": "Trust/proof/source mentioned",
+          "hint": "Review evidence, sources, cases or references.",
+          "keywords": [
+            "Quelle",
+            "Studie",
+            "Case",
+            "Referenz",
+            "Beleg"
+          ],
+          "weight": 2
+        },
+        "cta": {
+          "label": "CTA vorhanden",
+          "hint": "Review next action or contact option.",
+          "keywords": [
+            "Kontakt",
+            "Download",
+            "Beratung",
+            "Demo",
+            "mehr erfahren"
+          ],
+          "weight": 2
+        }
+      }
+    },
+    "tech_it_saas": {
+      "label": "Tech / IT / SaaS",
+      "brand_guidance": {
+        "tone": [
+          "precise and understandable",
+          "technically accurate",
+          "benefit-oriented",
+          "no unsupported performance claims"
+        ],
+        "avoid_phrases": [
+          "100% sicher",
+          "garantiert ausfallsicher",
+          "revolutionary"
+        ]
+      },
+      "content_consistency_checks": {
+        "problem": {
+          "label": "Problem/scenario clear",
+          "hint": "Review problem, use case or scenario.",
+          "keywords": [
+            "Problem",
+            "Herausforderung",
+            "Szenario",
+            "Use Case"
+          ],
+          "weight": 3
+        },
+        "solution": {
+          "label": "Solution/benefit clear",
+          "hint": "Present solution and benefit clearly.",
+          "keywords": [
+            "Lösung",
+            "Nutzen",
+            "Vorteil",
+            "Service",
+            "Plattform"
+          ],
+          "weight": 3
+        },
+        "audience": {
+          "label": "Target audience/use case clear",
+          "hint": "Review target audience, role or use case.",
+          "keywords": [
+            "Zielgruppe",
+            "IT",
+            "Admin",
+            "DevOps",
+            "Unternehmen"
+          ],
+          "weight": 2
+        },
+        "compliance": {
+          "label": "Sources/standards/compliance mentioned",
+          "hint": "Review sources, standards or compliance notes if relevant.",
+          "keywords": [
+            "ISO",
+            "DSGVO",
+            "Compliance",
+            "Security",
+            "SLA",
+            "Standard"
+          ],
+          "weight": 2
+        }
+      }
+    }
+  },
+  "brand_guidance": {
+    "tone": [
+      "clear and understandable",
+      "editorially careful",
+      "helpful and specific",
+      "not overly promotional",
+      "aligned with the brand"
+    ],
+    "avoid_phrases": [
+      "guaranteed perfect",
+      "sensational",
+      "unique for everyone",
+      "you absolutely have to see this"
+    ]
+  },
+  "tone": [
+    "clear and understandable",
+    "editorially careful",
+    "helpful and specific",
+    "not overly promotional",
+    "aligned with the brand"
+  ],
+  "avoid_phrases": [
+    "guaranteed perfect",
+    "sensational",
+    "unique for everyone",
+    "you absolutely have to see this"
+  ],
+  "editorial_rules": [
+    "Do not invent facts.",
+    "Only use information that is present in the post, categories, tags, checks or extracted_facts.",
+    "If content appears outdated, clearly mark this in the editorial improvement notes.",
+    "If advertising disclosure was detected, it must not be removed from social media or newsletter outputs.",
+    "If the excerpt appears to be a placeholder, suggest a new editorial excerpt.",
+    "If dates without a year were found, include this as an improvement note."
+  ],
+  "required_output": [
+    "instagram_caption_variant_1_emotional",
+    "instagram_caption_variant_2_practical",
+    "instagram_caption_variant_3_short",
+    "hook",
+    "cta",
+    "hashtags",
+    "story_idea",
+    "carousel_idea",
+    "suggested_excerpt",
+    "editorial_improvement_notes",
+    "newsletter_teaser"
+  ],
+  "format_settings": {
+    "preferred": "JSON",
+    "instagram_caption_variants": 3,
+    "hashtag_count": "8-15",
+    "include_hook": true,
+    "include_cta": true,
+    "newsletter_max_characters": 450,
+    "newsletter_style": "short teaser with value proposition"
+  },
+  "wordpress_checks": {
+    "min_word_count": 450,
+    "featured_image_min_width": 1200,
+    "featured_image_min_height": 800,
+    "stale_after_days": 365,
+    "relative_time_terms": [
+      "aktuell",
+      "derzeit",
+      "momentan",
+      "bald",
+      "demnächst",
+      "dieses Jahr",
+      "letztes Jahr",
+      "zur Zeit",
+      "in den Sommerferien",
+      "im Herbst",
+      "im Winter",
+      "im Frühjahr",
+      "im Sommer"
+    ]
+  },
+  "content_consistency_checks": {},
+  "scoring": {
+    "labels": [
+      {
+        "min": 85,
+        "max": 100,
+        "text": "Very well prepared"
+      },
+      {
+        "min": 70,
+        "max": 84,
+        "text": "Good, small optimizations possible"
+      },
+      {
+        "min": 50,
+        "max": 69,
+        "text": "Revision recommended"
+      },
+      {
+        "min": 0,
+        "max": 49,
+        "text": "Not ready for publication/social push"
+      }
+    ]
+  },
+  "structured_fields": {
+    "enabled": false,
+    "fallback_to_content_parsing": true,
+    "meta_keys": {
+      "latitude": "",
+      "longitude": "",
+      "google_maps_link": "",
+      "street": "",
+      "zip": "",
+      "city": "",
+      "external_link": "",
+      "image_credit": ""
+    }
+  },
+  "quality_checks": {
+    "internal_editorial_notes": {
+      "enabled": true,
+      "max_snippets": 8,
+      "snippet_length": 160,
+      "terms": [
+        "Mein Vorschlag",
+        "Vorschlag:",
+        "Anmerkung:",
+        "TODO",
+        "ToDo",
+        "To-do",
+        "prüfen",
+        "bitte prüfen",
+        "noch ergänzen",
+        "noch einfügen",
+        "hier ergänzen",
+        "hier einfügen",
+        "Platzhalter",
+        "Dummy",
+        "Lorem ipsum",
+        "wenn ja, dann",
+        "würde ich es so schreiben",
+        "habt ihr",
+        "könnt ihr",
+        "bitte noch",
+        "kommt noch",
+        "folgt noch"
+      ]
+    },
+    "typo_hints": {
+      "enabled": true,
+      "terms": {
+        "Mautraße": "Mautstraße",
+        "abegrissen": "abgerissen",
+        "denn See": "den See",
+        "Lenggies": "Lenggries"
+      }
+    }
+  }
+}

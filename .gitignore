@@ -1,0 +1,8 @@
+*.mo
+*.po
+*.pot
+languages/*.mo
+languages/*.po
+languages/*.pot
+__MACOSX/
+.DS_Store
